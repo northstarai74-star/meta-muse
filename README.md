@@ -3,7 +3,7 @@
 A personal CRM / operating system for three business lines: **AI Voice Receptionist**, **Web Development** and **Dropshipping**.
 It captures Instagram DMs, comments and Meta Lead Ads, classifies each lead with Claude, assigns it to an AI agent or team member, and tracks leads → converted customers → revenue.
 
-Stack: Next.js 16 (App Router) · TypeScript · Tailwind v4 · Prisma 6 + SQLite · Recharts.
+Stack: Next.js 16 (App Router) · TypeScript · Tailwind v4 · Prisma 6 + Postgres · Recharts.
 
 ## Run it
 
@@ -15,6 +15,14 @@ npm run dev         # http://localhost:3000
 
 Login: `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env` (defaults in `.env.example`). Change the password and both secrets in `.env` before using real data.
 `npm run db:seed` **wipes leads/contacts/team** and recreates demo data — don't run it once you have real data.
+
+## Deploy on Vercel
+
+1. Import the repo in Vercel and add a Postgres database under **Storage** (Neon). It sets `DATABASE_URL`.
+2. In **Settings → Environment Variables** add `SESSION_SECRET`, `ENCRYPTION_KEY`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` and `APP_URL` (your https URL).
+3. Deploy. The build (`vercel-build`) applies migrations and creates the admin user if the database has no users. Existing data is never touched.
+
+SQLite can't be used on Vercel (read-only, ephemeral filesystem), which is why the app uses Postgres.
 
 ## What's inside
 

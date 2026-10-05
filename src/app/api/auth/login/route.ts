@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     // Usually a setup problem (missing .env / SESSION_SECRET, or an unmigrated / unseeded database)
     console.error("Login failed:", err);
     return NextResponse.json(
-      { error: "Server error — check .env (DATABASE_URL, SESSION_SECRET), then run `npx prisma migrate deploy && npm run db:seed`" },
+      { error: "Server error — check the DATABASE_URL and SESSION_SECRET environment variables and that migrations have been applied" },
       { status: 500 },
     );
   }
