@@ -3,11 +3,11 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// Enum-like string columns (kept as String for SQLite/Postgres portability).
+// Enum-like string columns (kept as String for portability).
 // ROLE: ADMIN | MEMBER
 // SERVICE: AI_VOICE | WEB_DEV | DROPSHIPPING | UNASSIGNED
 // STAGE: NEW | CONTACTED | QUALIFIED | PROPOSAL | WON | LOST

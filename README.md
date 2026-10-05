@@ -5,15 +5,19 @@
 A personal CRM / operating system for three business lines: **AI Voice Receptionist**, **Web Development** and **Dropshipping**.
 It captures Instagram DMs, comments and Meta Lead Ads, classifies each lead with Claude, assigns it to an AI agent or team member, and tracks leads → converted customers → revenue.
 
-Stack: Next.js 16 (App Router) · TypeScript · Tailwind v4 · Prisma 6 + SQLite · Recharts.
+Stack: Next.js 16 (App Router) · TypeScript · Tailwind v4 · Prisma 6 + Postgres · Recharts.
 
 ## Run it
 
 ```bash
 npm install
-npm run db:seed     # creates demo data + the admin user (see .env)
-npm run dev         # http://localhost:3000
+cp .env.example .env     # set DATABASE_URL (Postgres), SESSION_SECRET, ENCRYPTION_KEY
+npx prisma migrate deploy
+npm run db:seed          # creates demo data + the admin user (see .env)
+npm run dev              # http://localhost:3000
 ```
+
+You need a Postgres database: a local server, or a free Neon / Supabase database.
 
 Login: `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env` (defaults in `.env.example`). Change the password and both secrets in `.env` before using real data.
 `npm run db:seed` **wipes leads/contacts/team** and recreates demo data — don't run it once you have real data.
@@ -68,4 +72,14 @@ src/app/(app)/*           pages          src/components/*   UI
 ## Notes
 
 - Built for personal/local use. Before exposing it publicly: set strong secrets, serve over HTTPS, and add login rate-limiting.
-- SQLite file lives at `prisma/dev.db`; the schema is portable to Postgres by changing the datasource provider.
+- The app uses Postgres. SQLite does not work on Vercel (read-only, non-persistent filesystem).
+
+## Deploy to Vercel
+
+1. Create a Postgres database (Neon, Supabase or Vercel Postgres) and copy its **direct, non-pooled** connection string.
+2. In the Vercel project, set these environment variables: `DATABASE_URL`, `SESSION_SECRET` (long random string), `ENCRYPTION_KEY` (64 hex chars, see `.env.example`), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `APP_URL` (your `https://….vercel.app` URL).
+3. Deploy. `vercel-build` runs `prisma migrate deploy` before `next build`, and `postinstall` generates the Prisma client.
+4. Create the admin user once, from your machine, against the production database:
+   `DATABASE_URL="<prod url>" ADMIN_EMAIL=… ADMIN_PASSWORD=… npm run db:seed`
+   This also loads demo data and wipes existing leads/contacts/team, so only run it on a new database.
+5. If sign-in shows "Sign in failed", the login API is returning a server error: check the function logs for `POST /api/auth/login` (usually a missing env var or an unreachable `DATABASE_URL`).
