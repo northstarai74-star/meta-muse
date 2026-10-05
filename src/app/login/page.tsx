@@ -25,7 +25,7 @@ export default function LoginPage() {
       router.replace("/");
       router.refresh();
     } else {
-      setError((await res.json().catch(() => ({}))).error ?? "Sign in failed");
+      setError((await res.json().catch(() => ({}))).error ?? `Sign in failed (server returned ${res.status})`);
       setBusy(false);
     }
   }
