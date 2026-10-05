@@ -18,11 +18,18 @@ import {
   LogOut,
   Menu,
   Sparkles,
+  CheckSquare,
+  BarChart3,
+  Store,
+  Megaphone,
+  Handshake,
+  Landmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "./ui";
+import { AssistantWidget } from "./assistant-widget";
 
-type Counts = { inbox: number; comments: number };
+type Counts = { inbox: number; comments: number; tasks: number };
 type U = { name: string; email: string; role: string; avatarColor: string };
 
 const NAV = [
@@ -31,6 +38,14 @@ const NAV = [
     { href: "/leads", label: "Leads", icon: Users },
     { href: "/inbox", label: "Inbox", icon: InboxIcon, badge: "inbox" as const },
     { href: "/engagement", label: "Comments & Enquiries", icon: MessageSquareText, badge: "comments" as const },
+    { href: "/tasks", label: "Follow-ups", icon: CheckSquare, badge: "tasks" as const },
+    { href: "/reports", label: "Reports", icon: BarChart3 },
+  ]},
+  { group: "Business", items: [
+    { href: "/store", label: "Dropshipping store", icon: Store },
+    { href: "/marketing", label: "Marketing", icon: Megaphone },
+    { href: "/clients", label: "Active clients", icon: Handshake },
+    { href: "/finance", label: "Finance & reserves", icon: Landmark },
   ]},
   { group: "CRM", items: [
     { href: "/contacts", label: "Contacts", icon: Contact2 },
@@ -42,7 +57,7 @@ const NAV = [
   ]},
 ];
 
-export function Shell({ user, counts, demoMode, children }: { user: U; counts: Counts; demoMode: boolean; children: React.ReactNode }) {
+export function Shell({ user, counts, demoMode, assistant, children }: { user: U; counts: Counts; demoMode: boolean; assistant: { chat: boolean; voice: boolean; speakReplies: boolean }; children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -170,8 +185,9 @@ export function Shell({ user, counts, demoMode, children }: { user: U; counts: C
             </div>
           </div>
         </header>
-        <main className="mx-auto max-w-[1400px] p-4 lg:p-8">{children}</main>
+        <main className="mx-auto max-w-[1400px] p-4 pb-24 lg:p-8 lg:pb-24">{children}</main>
       </div>
+      <AssistantWidget chat={assistant.chat} voice={assistant.voice} speakDefault={assistant.speakReplies} isAdmin={user.role === "ADMIN"} />
     </div>
   );
 }

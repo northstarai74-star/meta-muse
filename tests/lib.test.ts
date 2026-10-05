@@ -36,3 +36,20 @@ test("heuristicClassify routes messages to the right service", () => {
   assert.equal(heuristicClassify("Looking for a dropship supplier, bulk order").service, "DROPSHIPPING");
   assert.equal(heuristicClassify("hello there").service, "UNASSIGNED");
 });
+
+import { parseCsv, toCsv } from "../src/lib/csv";
+
+test("toCsv quotes special characters and neutralises spreadsheet formulas", () => {
+  const out = toCsv(["a", "b"], [["x,y", 'say "hi"'], ["=SUM(A1)", "line1\nline2"]]);
+  assert.equal(out, 'a,b\r\n"x,y","say ""hi"""\r\n\'=SUM(A1),"line1\nline2"\r\n');
+});
+
+test("parseCsv handles quotes, embedded newlines, CRLF and a BOM", () => {
+  const rows = parseCsv('﻿name,note\r\n"Ann, Jr.","a ""b""\nc"\r\nBob,\r\n\r\n');
+  assert.deepEqual(rows, [["name", "note"], ["Ann, Jr.", 'a "b"\nc'], ["Bob", ""]]);
+});
+
+test("toCsv leaves phone numbers and negative numbers alone but still guards formulas", () => {
+  const out = toCsv(["v"], [["+1 (555) 010-2030"], ["-5"], ["+cmd|x"], ["-2+3"], ["@SUM(1)"]]);
+  assert.equal(out, "v\r\n+1 (555) 010-2030\r\n-5\r\n'+cmd|x\r\n'-2+3\r\n'@SUM(1)\r\n");
+});

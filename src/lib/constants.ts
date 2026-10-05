@@ -57,5 +57,27 @@ export const SOURCE_META: Record<string, string> = {
   MANUAL: "Manual",
 };
 
-export const PROVIDERS = ["META", "CLAUDE", "HIGGSFIELD"] as const;
+export const LOST_REASONS = ["No budget", "No response", "Chose a competitor", "Not a fit", "Bad timing", "Other"] as const;
+
+/** An open lead with no activity for this many days is flagged as needing attention. */
+export const STALE_DAYS = 3;
+
+export const PROVIDERS = ["META", "CLAUDE", "HIGGSFIELD", "OPENROUTER", "ELEVENLABS"] as const;
+
+export const PRODUCT_STATUS = ["ACTIVE", "TESTING", "PAUSED"] as const;
+export const ORDER_STATUS = ["PENDING", "SHIPPED", "DELIVERED", "REFUNDED"] as const;
+export const CAMPAIGN_STATUS = ["PLANNED", "ACTIVE", "PAUSED", "DONE"] as const;
+export const CONTENT_STATUS = ["IDEA", "DRAFT", "SCHEDULED", "POSTED"] as const;
+export const CHANNELS = ["INSTAGRAM", "META_ADS", "TIKTOK", "EMAIL", "GOOGLE_ADS", "YOUTUBE", "OTHER"] as const;
+export const CLIENT_STATUS = ["ACTIVE", "PAUSED", "CHURNED"] as const;
+export const BUSINESS_LINES = ["AI_VOICE", "WEB_DEV", "DROPSHIPPING", "GENERAL"] as const;
+export const EXPENSE_CATEGORIES = ["Software & tools", "Contractors", "Advertising", "Inventory", "Shipping", "Fees & taxes", "Salary", "Other"] as const;
+export const INCOME_CATEGORIES = ["Client payment", "Store sales", "Retainer", "Other"] as const;
+
+export const CHANNEL_LABEL: Record<string, string> = {
+  INSTAGRAM: "Instagram", META_ADS: "Meta Ads", TIKTOK: "TikTok", EMAIL: "Email", GOOGLE_ADS: "Google Ads", YOUTUBE: "YouTube", OTHER: "Other",
+};
+export const LINE_LABEL: Record<string, string> = {
+  AI_VOICE: "AI Voice", WEB_DEV: "Web Dev", DROPSHIPPING: "Dropshipping", GENERAL: "General", ALL: "All services",
+};
 export type Provider = (typeof PROVIDERS)[number];

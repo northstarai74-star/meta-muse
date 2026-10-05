@@ -6,19 +6,23 @@ export const dynamic = "force-dynamic";
 
 export default async function InboxPage({ searchParams }: { searchParams: Promise<{ c?: string }> }) {
   const { c } = await searchParams;
-  const convos = await db.conversation.findMany({
+  const [templates, convos] = await Promise.all([
+    db.template.findMany({ orderBy: { createdAt: "asc" }, select: { id: true, title: true, body: true } }),
+    db.conversation.findMany({
     orderBy: { lastMessageAt: "desc" },
     take: 100,
     include: {
       messages: { orderBy: { sentAt: "asc" } },
       contact: { include: { leads: { orderBy: { createdAt: "desc" }, take: 1, include: { assignedUser: { select: { name: true } } } } } },
     },
-  });
+  }),
+  ]);
 
   return (
     <>
       <PageHeader title="Instagram Inbox" subtitle="Direct messages from your connected Instagram business account" />
       <InboxView
+        templates={templates}
         initialId={c ?? convos[0]?.id ?? null}
         convos={convos.map((v) => ({
           id: v.id,

@@ -6,6 +6,7 @@ import { Avatar, Card, CardHeader, Empty, ScoreBadge, ServiceBadge } from "@/com
 import { Funnel, LeadsAreaChart, RevenueBars, ServiceDonut } from "@/components/charts";
 import { SERVICE_META } from "@/lib/constants";
 import { cn, money, timeAgo } from "@/lib/utils";
+import { dayLabel } from "@/lib/followups";
 
 const RANGES = [
   { v: 7, label: "7 days" },
@@ -74,7 +75,50 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <Kpi label="Lead → customer rate" value={`${k.conversion.value}%`} icon={TrendingUp} tone="bg-fuchsia-500/10 text-fuchsia-600" hint="leads marked won" />
       </div>
 
-      <div className="mt-6 grid gap-4 xl:grid-cols-3">
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader
+            title="Follow-ups due"
+            subtitle={s.tasksDueCount ? `${s.tasksDueCount} due today or overdue` : undefined}
+            action={<Link href="/tasks" className="text-xs font-medium text-accent hover:underline">View all</Link>}
+          />
+          {s.tasksDue.length === 0 ? <Empty title="You're all caught up" hint="Add follow-ups from any lead to be reminded here." /> : (
+            <ul className="divide-y border-t">
+              {s.tasksDue.map((t) => (
+                <li key={t.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{t.title}</p>
+                    <Link href={`/leads?open=${t.lead.id}`} className="text-xs text-muted hover:text-accent">{t.lead.contact.name}</Link>
+                  </div>
+                  <span className={cn("shrink-0 text-xs font-medium", t.dueAt < new Date(new Date().toISOString().slice(0, 10)) ? "text-rose-600" : "text-amber-600")}>{dayLabel(t.dueAt)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+        <Card>
+          <CardHeader
+            title="Needs attention"
+            subtitle={s.stale.count ? `${s.stale.count} open lead${s.stale.count === 1 ? "" : "s"} with no activity for 3+ days` : undefined}
+            action={<Link href="/leads?attention=1" className="text-xs font-medium text-accent hover:underline">View all</Link>}
+          />
+          {s.stale.top.length === 0 ? <Empty title="No stale leads" hint="Every open lead has been touched recently." /> : (
+            <ul className="divide-y border-t">
+              {s.stale.top.map((l) => (
+                <li key={l.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+                  <div className="min-w-0">
+                    <Link href={`/leads?open=${l.id}`} className="block truncate font-medium hover:text-accent">{l.contact.name}</Link>
+                    <p className="truncate text-xs text-muted">{l.title}</p>
+                  </div>
+                  <span className="shrink-0 text-xs text-amber-600">{timeAgo(l.lastAt)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-3">
         <Card className="xl:col-span-2">
           <CardHeader title="Lead volume" subtitle="New leads per service" />
           <div className="px-3 pb-4">

@@ -29,6 +29,7 @@ model User {
   leads      Lead[]
   activities Activity[]
   rules      AssignmentRule[]
+  tasks      Task[]
 }
 
 model Contact {
@@ -46,6 +47,7 @@ model Contact {
   leads         Lead[]
   conversations Conversation[]
   comments      Comment[]
+  clients       Client[]
 }
 
 model Lead {
@@ -62,9 +64,11 @@ model Lead {
   assignedUserId  String?
   assignedUser    User?    @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
   estimatedValue  Float    @default(0)
+  lostReason      String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  tasks       Task[]
   deals       Deal[]
   activities  Activity[]
   comments    Comment[]
@@ -192,4 +196,138 @@ model AssignmentRule {
 model Setting {
   key   String @id
   value String
+}
+
+/// Follow-up reminder attached to a lead.
+model Task {
+  id             String    @id @default(cuid())
+  leadId         String
+  lead           Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  title          String
+  dueAt          DateTime
+  done           Boolean   @default(false)
+  doneAt         DateTime?
+  assignedUserId String?
+  assignedUser   User?     @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
+  createdAt      DateTime  @default(now())
+
+  @@index([done, dueAt])
+  @@index([leadId])
+}
+
+/// Saved quick reply for the Instagram inbox. `{{name}}` is replaced with the contact's first name.
+model Template {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+}
+
+// ---- Business sections: store, marketing, clients, finance ----
+// STORE STATUS: ACTIVE | TESTING | PAUSED     ORDER STATUS: PENDING | SHIPPED | DELIVERED | REFUNDED
+// CAMPAIGN STATUS: PLANNED | ACTIVE | PAUSED | DONE     CONTENT STATUS: IDEA | DRAFT | SCHEDULED | POSTED
+// CLIENT STATUS: ACTIVE | PAUSED | CHURNED     ENTRY TYPE: INCOME | EXPENSE
+// BUSINESS LINE: AI_VOICE | WEB_DEV | DROPSHIPPING | GENERAL
+
+model Product {
+  id        String   @id @default(cuid())
+  name      String
+  sku       String?
+  supplier  String?
+  cost      Float    @default(0)
+  price     Float    @default(0)
+  stock     Int      @default(0)
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+
+  orders StoreOrder[]
+}
+
+model StoreOrder {
+  id          String   @id @default(cuid())
+  number      String
+  customer    String
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productName String
+  quantity    Int      @default(1)
+  revenue     Float    @default(0)
+  cost        Float    @default(0)
+  status      String   @default("PENDING")
+  placedAt    DateTime @default(now())
+
+  @@index([placedAt])
+}
+
+model Campaign {
+  id             String    @id @default(cuid())
+  name           String
+  channel        String    @default("INSTAGRAM")
+  service        String    @default("ALL")
+  status         String    @default("PLANNED")
+  budget         Float     @default(0)
+  spend          Float     @default(0)
+  leadsGenerated Int       @default(0)
+  startsAt       DateTime?
+  endsAt         DateTime?
+  notes          String?
+  createdAt      DateTime  @default(now())
+}
+
+model ContentItem {
+  id           String    @id @default(cuid())
+  title        String
+  channel      String    @default("INSTAGRAM")
+  status       String    @default("IDEA")
+  scheduledFor DateTime?
+  caption      String?
+  createdAt    DateTime  @default(now())
+}
+
+model Client {
+  id         String    @id @default(cuid())
+  contactId  String
+  contact    Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  service    String
+  monthlyFee Float     @default(0)
+  status     String    @default("ACTIVE")
+  startedAt  DateTime  @default(now())
+  renewsAt   DateTime?
+  notes      String?
+  createdAt  DateTime  @default(now())
+
+  @@index([status])
+}
+
+model FinanceEntry {
+  id           String   @id @default(cuid())
+  type         String
+  category     String
+  amount       Float
+  businessLine String   @default("GENERAL")
+  note         String?
+  occurredAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  @@index([occurredAt])
+}
+
+model Reserve {
+  id        String        @id @default(cuid())
+  name      String
+  target    Float         @default(0)
+  balance   Float         @default(0)
+  createdAt DateTime      @default(now())
+  moves     ReserveMove[]
+}
+
+model ReserveMove {
+  id        String   @id @default(cuid())
+  reserveId String
+  reserve   Reserve  @relation(fields: [reserveId], references: [id], onDelete: Cascade)
+  delta     Float
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([reserveId, createdAt])
 }

@@ -109,3 +109,32 @@ export function Funnel({ data }: { data: { stage: string; count: number }[] }) {
     </div>
   );
 }
+
+export function RevenueTrend({ data }: { data: { label: string; revenue: number }[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <CartesianGrid vertical={false} stroke="var(--border)" />
+        <XAxis dataKey="label" tick={tick} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+        <YAxis tick={tick} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => (v >= 1000 ? `$${v / 1000}k` : `$${v}`)} />
+        <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`$${Number(v).toLocaleString()}`, "Revenue"]} cursor={{ fill: "var(--surface-2)" }} />
+        <Bar dataKey="revenue" fill="#10b981" radius={[6, 6, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function IncomeExpenseBars({ data }: { data: { label: string; income: number; expenses: number }[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={240}>
+      <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <CartesianGrid vertical={false} stroke="var(--border)" />
+        <XAxis dataKey="label" tick={tick} tickLine={false} axisLine={false} />
+        <YAxis tick={tick} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => (v >= 1000 ? `$${v / 1000}k` : `$${v}`)} />
+        <Tooltip contentStyle={tooltipStyle} formatter={(v, n) => [`$${Number(v).toLocaleString()}`, n === "income" ? "Income" : "Expenses"]} cursor={{ fill: "var(--surface-2)" }} />
+        <Bar dataKey="income" fill="#10b981" radius={[6, 6, 0, 0]} />
+        <Bar dataKey="expenses" fill="#f43f5e" radius={[6, 6, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}

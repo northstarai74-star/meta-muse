@@ -41,6 +41,14 @@ async function main() {
   const password = process.env.ADMIN_PASSWORD ?? "ChangeMe123!";
 
   // wipe demo data (keeps API keys + Meta connection + settings)
+  await db.reserveMove.deleteMany();
+  await db.reserve.deleteMany();
+  await db.financeEntry.deleteMany();
+  await db.client.deleteMany();
+  await db.contentItem.deleteMany();
+  await db.campaign.deleteMany();
+  await db.storeOrder.deleteMany();
+  await db.product.deleteMany();
   await db.activity.deleteMany();
   await db.deal.deleteMany();
   await db.enquiry.deleteMany();
@@ -159,6 +167,80 @@ async function main() {
       { formName: "AI Receptionist Demo", name: "Dr. Samir Joshi", email: "samir@joshiortho.com", phone: "+1 555 902 1144", message: "Clinic misses ~20 calls/day. Want a demo.", createdAt: daysAgo(0, 6) },
     ],
   });
+
+  // ---- Business sections (demo data) ----
+  const products = await Promise.all(
+    [
+      ["Posture Corrector Pro", "PC-001", "Yiwu Direct", 6.4, 29.99, 140, "ACTIVE"],
+      ["LED Sunset Lamp", "LL-014", "Shenzhen Glow Co", 4.1, 22.5, 3, "ACTIVE"],
+      ["Magnetic Phone Case (iPhone)", "MC-220", "Yiwu Direct", 2.2, 14.99, 260, "ACTIVE"],
+      ["Portable Blender Bottle", "BB-077", "Ningbo Home", 8.9, 39.0, 48, "ACTIVE"],
+      ["Pet Hair Roller", "PH-031", "Ningbo Home", 1.8, 12.99, 4, "TESTING"],
+      ["Yoga Mat Eco 6mm", "YM-009", "Guangzhou Fit", 7.5, 34.0, 0, "PAUSED"],
+    ].map(([name, sku, supplier, cost, price, stock, status]) =>
+      db.product.create({ data: { name: name as string, sku: sku as string, supplier: supplier as string, cost: cost as number, price: price as number, stock: stock as number, status: status as string } }),
+    ),
+  );
+  const orderStatus = ["DELIVERED", "DELIVERED", "DELIVERED", "SHIPPED", "PENDING", "REFUNDED"] as const;
+  for (let i = 0; i < 34; i++) {
+    const p = pick(products.slice(0, 5));
+    const qty = rnd() > 0.8 ? 2 : 1;
+    const age = Math.floor(75 * rnd());
+    const status = age > 14 ? pick(["DELIVERED", "DELIVERED", "DELIVERED", "DELIVERED", "REFUNDED"]) : pick(orderStatus);
+    await db.storeOrder.create({
+      data: {
+        number: String(1001 + i), customer: `${pick(first)} ${pick(last)}`, productId: p.id, productName: p.name, quantity: qty,
+        revenue: +(p.price * qty).toFixed(2), cost: +(p.cost * qty).toFixed(2), status, placedAt: daysAgo(age),
+      },
+    });
+  }
+
+  await db.campaign.createMany({
+    data: [
+      { name: "Reel: missed-calls clinic hook", channel: "INSTAGRAM", service: "AI_VOICE", status: "ACTIVE", budget: 600, spend: 412, leadsGenerated: 23, startsAt: daysAgo(18) },
+      { name: "Lead ad: free website audit", channel: "META_ADS", service: "WEB_DEV", status: "ACTIVE", budget: 900, spend: 655, leadsGenerated: 31, startsAt: daysAgo(25) },
+      { name: "TikTok: winning product tests", channel: "TIKTOK", service: "DROPSHIPPING", status: "ACTIVE", budget: 450, spend: 298, leadsGenerated: 0, startsAt: daysAgo(9), notes: "Store traffic campaign — judge by orders, not leads." },
+      { name: "Newsletter: spring offer", channel: "EMAIL", service: "ALL", status: "DONE", budget: 80, spend: 80, leadsGenerated: 9, startsAt: daysAgo(40), endsAt: daysAgo(33) },
+      { name: "YouTube explainer: AI receptionist", channel: "YOUTUBE", service: "AI_VOICE", status: "PLANNED", budget: 350, spend: 0, leadsGenerated: 0 },
+    ],
+  });
+  const ahead = (d: number) => new Date(Date.now() + d * 86400_000);
+  await db.contentItem.createMany({
+    data: [
+      { title: "Carousel: 5 calls your clinic is missing", channel: "INSTAGRAM", status: "SCHEDULED", scheduledFor: ahead(1), caption: "Every missed call is a missed patient…" },
+      { title: "Reel: before/after website redesign", channel: "INSTAGRAM", status: "DRAFT", scheduledFor: ahead(3) },
+      { title: "Story poll: which product should we test next?", channel: "INSTAGRAM", status: "IDEA" },
+      { title: "TikTok: unboxing the sunset lamp", channel: "TIKTOK", status: "SCHEDULED", scheduledFor: ahead(2) },
+      { title: "Case study: dental clinic +40% bookings", channel: "EMAIL", status: "IDEA" },
+      { title: "Reel: how our AI books an appointment", channel: "INSTAGRAM", status: "POSTED", scheduledFor: daysAgo(4) },
+    ],
+  });
+
+  const wonLeads = await db.lead.findMany({ where: { stage: "WON", service: { not: "UNASSIGNED" } }, take: 6, orderBy: { createdAt: "asc" } });
+  const fees: Record<string, number> = { AI_VOICE: 499, WEB_DEV: 250, DROPSHIPPING: 350 };
+  for (const [i, l] of wonLeads.entries()) {
+    await db.client.create({
+      data: {
+        contactId: l.contactId, service: l.service, monthlyFee: fees[l.service], status: i === 4 ? "PAUSED" : i === 5 ? "CHURNED" : "ACTIVE",
+        startedAt: daysAgo(30 + i * 20), renewsAt: i === 5 ? null : ahead(4 + i * 9),
+        notes: i === 0 ? "Wants a monthly report on call volume." : null,
+      },
+    });
+  }
+
+  const income = [["Client payment", 1800, "AI_VOICE", "Clinic setup fee", 21], ["Retainer", 750, "WEB_DEV", "Site maintenance — Oct", 9], ["Other", 120, "GENERAL", "Affiliate payout", 15]] as const;
+  for (const [category, amount, businessLine, note, age] of income) await db.financeEntry.create({ data: { type: "INCOME", category, amount, businessLine, note, occurredAt: daysAgo(age) } });
+  const expense = [["Software & tools", 189, "GENERAL", "Hosting, CRM, voice minutes", 3], ["Contractors", 600, "WEB_DEV", "Freelance designer", 12], ["Software & tools", 79, "AI_VOICE", "Telephony platform", 8], ["Fees & taxes", 240, "GENERAL", "Payment processor fees", 20], ["Shipping", 160, "DROPSHIPPING", "Courier top-up", 6]] as const;
+  for (const [category, amount, businessLine, note, age] of expense) await db.financeEntry.create({ data: { type: "EXPENSE", category, amount, businessLine, note, occurredAt: daysAgo(age) } });
+
+  for (const [name, target, balance, moves] of [
+    ["Tax (set aside 25%)", 4000, 1650, [[900, "Q3 profit"], [750, "Oct profit"]]],
+    ["Emergency fund", 6000, 2400, [[2400, "Initial funding"]]],
+    ["Ad budget buffer", 1500, 1500, [[1500, "Funded"]]],
+  ] as const) {
+    const r = await db.reserve.create({ data: { name, target, balance } });
+    for (const [delta, note] of moves) await db.reserveMove.create({ data: { reserveId: r.id, delta, note } });
+  }
 
   // MetaConnection placeholder so the webhook verify token exists
   await db.metaConnection.upsert({ where: { id: "singleton" }, create: { id: "singleton", verifyToken: "bos_verify_" + Math.random().toString(36).slice(2, 10) }, update: {} });

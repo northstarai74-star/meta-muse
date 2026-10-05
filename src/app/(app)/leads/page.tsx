@@ -1,10 +1,11 @@
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/shell";
 import { LeadsView } from "@/components/leads-view";
+import { isStale, lastActivityByLead } from "@/lib/followups";
 
 export const dynamic = "force-dynamic";
 
-export default async function LeadsPage({ searchParams }: { searchParams: Promise<{ q?: string; open?: string; service?: string }> }) {
+export default async function LeadsPage({ searchParams }: { searchParams: Promise<{ q?: string; open?: string; service?: string; attention?: string }> }) {
   const sp = await searchParams;
   const [leads, users] = await Promise.all([
     db.lead.findMany({
@@ -15,6 +16,8 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     db.user.findMany({ select: { id: true, name: true, avatarColor: true }, orderBy: { name: "asc" } }),
   ]);
 
+  const last = await lastActivityByLead(leads.map((l) => l.id));
+
   return (
     <>
       <PageHeader title="Leads" subtitle="Everything captured from Instagram DMs, comments and Meta lead ads" />
@@ -22,6 +25,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         initialQuery={sp.q ?? ""}
         initialOpen={sp.open ?? null}
         initialService={sp.service ?? "ALL"}
+        initialAttention={sp.attention === "1"}
         users={users}
         leads={leads.map((l) => ({
           id: l.id,
@@ -34,6 +38,9 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           assignedUserId: l.assignedUserId,
           estimatedValue: l.estimatedValue,
           createdAt: l.createdAt.toISOString(),
+          lastActivityAt: (last.get(l.id) ?? l.createdAt).toISOString(),
+          stale: isStale(l.stage, l.createdAt, last.get(l.id)),
+          lostReason: l.lostReason,
           contact: l.contact,
         }))}
       />

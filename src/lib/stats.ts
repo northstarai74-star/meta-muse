@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { SERVICES, STAGES } from "./constants";
+import { dueNowWhere, staleLeads } from "./followups";
 
 const DAY = 86400_000;
 
@@ -8,7 +9,7 @@ export async function dashboardStats(rangeDays: number) {
   const since = new Date(now - rangeDays * DAY);
   const prevSince = new Date(now - rangeDays * 2 * DAY);
 
-  const [leads, prevLeads, deals, prevDeals, recent, activity] = await Promise.all([
+  const [leads, prevLeads, deals, prevDeals, recent, activity, tasksDue, tasksDueCount, stale] = await Promise.all([
     db.lead.findMany({ where: { createdAt: { gte: since } }, select: { service: true, stage: true, createdAt: true } }),
     db.lead.count({ where: { createdAt: { gte: prevSince, lt: since } } }),
     db.deal.findMany({ where: { paidAt: { gte: since }, status: "PAID" } }),
@@ -19,6 +20,9 @@ export async function dashboardStats(rangeDays: number) {
       include: { contact: true, assignedUser: { select: { name: true, avatarColor: true } } },
     }),
     db.activity.findMany({ orderBy: { createdAt: "desc" }, take: 8, include: { lead: { include: { contact: true } } } }),
+    db.task.findMany({ where: dueNowWhere(), orderBy: { dueAt: "asc" }, take: 6, include: { lead: { select: { id: true, contact: { select: { name: true } } } } } }),
+    db.task.count({ where: dueNowWhere() }),
+    staleLeads(5),
   ]);
 
   const revenue = deals.reduce((s, d) => s + d.amount, 0);
@@ -71,5 +75,8 @@ export async function dashboardStats(rangeDays: number) {
     funnel,
     recent,
     activity,
+    tasksDue,
+    tasksDueCount,
+    stale,
   };
 }

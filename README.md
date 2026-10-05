@@ -27,6 +27,13 @@ Login: just `ADMIN_PASSWORD` from `.env` (defaults in `.env.example`) — the em
 | Inbox | Instagram DMs: threads, reply, "Suggest" (Claude draft), create lead from thread |
 | Comments & Enquiries | Triage IG comments and lead-ad forms; reply, convert to lead |
 | Contacts | CRM: name, contact info, services, assigned team, lifetime value, edit |
+| Follow-ups | Reminders per lead (added in the lead drawer), overdue / today / upcoming, sidebar badge, dashboard card |
+| Reports | Win rate and revenue by source, service and owner; why leads are lost; days to win; revenue trend |
+| Dropshipping store | Products, orders (stock updates automatically, refunds restock), profit & margin, low-stock alerts |
+| Marketing | Campaigns with spend and cost-per-lead by channel, plus a content calendar |
+| Active clients | Retainers: MRR / ARR, renewals due, paused and churned clients |
+| Finance & reserves | *(admins only)* Income vs expenses across deals, the store, campaigns and manual entries; per-business-line P&L; reserve funds (Tax, Emergency, …) with targets, deposits/withdrawals and runway |
+| Assistant | Chat / voice assistant on every page (see below) |
 | Team | Members, workload, auto-assignment rules per service (AI agent or person) |
 | Integrations | Meta connection + webhook details, **multi-key vault** for Meta / Claude / Higgsfield |
 | Settings | Demo mode, auto-assign, Claude model |
@@ -55,12 +62,21 @@ To go live:
    Messaging/lead access requires Meta App Review for anyone other than app roles/testers.
 5. Add at least one Claude key, then turn off **Demo mode** in Settings.
 
+## Assistant (OpenRouter chat + ElevenLabs voice)
+
+The round button at the bottom-right of every page opens the assistant. You can type to it, or tap the mic and speak (voice input uses the browser's speech recognition: Chrome, Edge or Safari). It answers from live business data and can act when you tell it to — add a follow-up, add a note to a lead, and (admins) log an income/expense.
+
+1. **Integrations → OpenRouter → Add key** turns the chat on. **Integrations → ElevenLabs → Add key** gives it a spoken voice (without one it falls back to the browser's built-in voice). Use **Test** to verify each key.
+2. **Settings → Assistant** sets the OpenRouter model (default `openrouter/auto`; pick one that supports tool calling), the ElevenLabs voice ID, whether replies are spoken, and the **instructions** — how it should behave. Blank uses sensible built-in instructions.
+
+Safety: the assistant cannot message customers, delete data, change prices or move reserve money, and it is told to treat anything written inside leads/messages as untrusted. Finance numbers and the finance tool are admin-only. Chat is limited to 20 requests/minute per user and voice to 30, to protect your credits. Your keys stay on the server (encrypted at rest) and are never sent to the browser.
+
 ## API keys
 
 Keys are encrypted at rest (AES-256-GCM, `ENCRYPTION_KEY`) and never returned by the API — only the last 4 characters.
 You can add several keys per provider. `withKey()` in `src/lib/keys.ts` uses them round-robin by priority; a `429` marks a key *rate limited* (retried after 5 min) and a `401/403` disables it, then the next key is tried automatically.
 
-Higgsfield keys are stored but nothing calls Higgsfield yet, and its **Test** button does not verify the key.
+OpenRouter and ElevenLabs keys can be verified with **Test**. Higgsfield keys are stored but nothing calls Higgsfield yet, and its **Test** button does not verify the key.
 
 ## Layout
 

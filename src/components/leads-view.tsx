@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Bot, KanbanSquare, LayoutList, Plus, Search, Sparkles } from "lucide-react";
+import { AlertTriangle, Bot, Download, KanbanSquare, LayoutList, Plus, Search, Sparkles, Trash2 } from "lucide-react";
 import { Avatar, Button, Card, Empty, Input, Label, Modal, ScoreBadge, Select, ServiceBadge, Sheet, StageBadge, Textarea } from "./ui";
-import { SERVICES, SERVICE_META, SOURCE_META, STAGES, STAGE_META } from "@/lib/constants";
+import { LOST_REASONS, SERVICES, SERVICE_META, SOURCE_META, STAGES, STAGE_META, STALE_DAYS } from "@/lib/constants";
 import { cn, money, timeAgo } from "@/lib/utils";
 
 type User = { id: string; name: string; avatarColor: string };
@@ -19,6 +19,9 @@ export type LeadRow = {
   assignedUserId: string | null;
   estimatedValue: number;
   createdAt: string;
+  lastActivityAt: string;
+  stale: boolean;
+  lostReason: string | null;
   contact: { id: string; name: string; instagramHandle: string | null; email: string | null; phone: string | null; company: string | null };
 };
 
@@ -29,7 +32,7 @@ async function call(url: string, method: string, body?: unknown) {
   return data;
 }
 
-export function LeadsView({ leads, users, initialQuery, initialOpen, initialService }: { leads: LeadRow[]; users: User[]; initialQuery: string; initialOpen: string | null; initialService: string }) {
+export function LeadsView({ leads, users, initialQuery, initialOpen, initialService, initialAttention }: { leads: LeadRow[]; users: User[]; initialQuery: string; initialOpen: string | null; initialService: string; initialAttention: boolean }) {
   const router = useRouter();
   const [view, setView] = React.useState<"table" | "board">("table");
   const [q, setQ] = React.useState(initialQuery);
@@ -41,6 +44,8 @@ export function LeadsView({ leads, users, initialQuery, initialOpen, initialServ
   const [openId, setOpenId] = React.useState<string | null>(initialOpen);
   const [creating, setCreating] = React.useState(false);
   const [convertId, setConvertId] = React.useState<string | null>(null);
+  const [lostId, setLostId] = React.useState<string | null>(null);
+  const [attention, setAttention] = React.useState(initialAttention);
   const [toast, setToast] = React.useState("");
 
   const userById = React.useMemo(() => Object.fromEntries(users.map((u) => [u.id, u])), [users]);
@@ -50,6 +55,7 @@ export function LeadsView({ leads, users, initialQuery, initialOpen, initialServ
     return leads.filter((l) => {
       if (service !== "ALL" && l.service !== service) return false;
       if (stage !== "ALL" && l.stage !== stage) return false;
+      if (attention && !l.stale) return false;
       if (source !== "ALL" && l.source !== source) return false;
       if (assignee === "AI" && l.assignedAgent !== "AI") return false;
       if (assignee === "NONE" && (l.assignedUserId || l.assignedAgent === "AI")) return false;
@@ -57,7 +63,8 @@ export function LeadsView({ leads, users, initialQuery, initialOpen, initialServ
       if (!needle) return true;
       return [l.title, l.contact.name, l.contact.instagramHandle, l.contact.email, l.contact.company].some((v) => v?.toLowerCase().includes(needle));
     });
-  }, [leads, q, service, stage, source, assignee]);
+  }, [leads, q, service, stage, source, assignee, attention]);
+  const staleCount = React.useMemo(() => leads.filter((l) => l.stale).length, [leads]);
 
   function flash(msg: string) {
     setToast(msg);
@@ -77,6 +84,7 @@ export function LeadsView({ leads, users, initialQuery, initialOpen, initialServ
 
   async function moveStage(id: string, next: string) {
     if (next === "WON") return setConvertId(id);
+    if (next === "LOST") return setLostId(id);
     await call(`/api/leads/${id}`, "PATCH", { stage: next });
     router.refresh();
   }
@@ -109,7 +117,11 @@ export function LeadsView({ leads, users, initialQuery, initialOpen, initialServ
             <option value="NONE">Unassigned</option>
             {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
           </Select>
+          <Button variant={attention ? "primary" : "secondary"} onClick={() => setAttention((v) => !v)} aria-pressed={attention} title={`Open leads with no activity for ${STALE_DAYS}+ days`}>
+            <AlertTriangle size={15} /> Needs attention{staleCount > 0 && <span className="rounded-full bg-amber-500/15 px-1.5 text-xs font-semibold text-amber-600">{staleCount}</span>}
+          </Button>
           <div className="ml-auto flex items-center gap-2">
+            <a href="/api/export/leads" download className="inline-flex h-9 items-center gap-2 rounded-lg border bg-surface px-3 text-sm font-medium hover:bg-surface-2"><Download size={15} /> Export CSV</a>
             <div className="inline-flex rounded-lg border p-0.5">
               {([["table", LayoutList], ["board", KanbanSquare]] as const).map(([v, Icon]) => (
                 <button key={v} onClick={() => setView(v)} aria-label={`${v} view`} className={cn("rounded-md p-1.5", view === v ? "bg-accent text-accent-fg" : "text-muted hover:text-fg")}>
@@ -169,6 +181,7 @@ export function LeadsView({ leads, users, initialQuery, initialOpen, initialServ
                       <td className="px-3 py-3">
                         <p className="font-medium">{l.contact.name}</p>
                         <p className="max-w-[18rem] truncate text-xs text-muted">{l.title}</p>
+                        {l.stale && <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-amber-600"><AlertTriangle size={11} /> No activity {timeAgo(l.lastActivityAt).replace(" ago", "")}</p>}
                       </td>
                       <td className="px-3 py-3"><ServiceBadge service={l.service} /></td>
                       <td className="px-3 py-3"><StageBadge stage={l.stage} /></td>
@@ -214,6 +227,7 @@ export function LeadsView({ leads, users, initialQuery, initialOpen, initialServ
                         <ScoreBadge score={l.score} />
                       </div>
                       <p className="mt-1 line-clamp-2 text-xs text-muted">{l.title}</p>
+                      {l.stale && <p className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-amber-600"><AlertTriangle size={11} /> Needs attention</p>}
                       <div className="mt-2.5 flex items-center justify-between">
                         <ServiceBadge service={l.service} />
                         <span className="text-xs tabular-nums text-muted">{l.estimatedValue ? money(l.estimatedValue) : ""}</span>
@@ -228,7 +242,8 @@ export function LeadsView({ leads, users, initialQuery, initialOpen, initialServ
         </div>
       )}
 
-      <LeadDrawer key={openId ?? "closed"} id={openId} users={users} onClose={() => setOpenId(null)} onConvert={(id) => setConvertId(id)} onChanged={() => router.refresh()} />
+      <LeadDrawer key={openId ?? "closed"} id={openId} users={users} onClose={() => setOpenId(null)} onConvert={(id) => setConvertId(id)} onLost={(id) => setLostId(id)} onChanged={() => router.refresh()} />
+      <LostModal key={lostId ?? "none"} id={lostId} name={leads.find((l) => l.id === lostId)?.contact.name} onClose={() => setLostId(null)} onDone={() => { setLostId(null); flash("Marked as lost"); router.refresh(); }} />
       <NewLeadModal open={creating} onClose={() => setCreating(false)} onDone={() => { setCreating(false); flash("Lead created and classified by Claude"); router.refresh(); }} />
       <ConvertModal key={convertId ?? "none"} id={convertId} onClose={() => setConvertId(null)} lead={leads.find((l) => l.id === convertId)} onDone={() => { setConvertId(null); setOpenId(null); flash("Converted — revenue recorded"); router.refresh(); }} />
       {toast && <div role="status" className="animate-in fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-xl bg-fg px-4 py-2.5 text-sm font-medium text-bg shadow-xl">{toast}</div>}
@@ -241,9 +256,11 @@ type Detail = {
   contact: { name: string; email: string | null; phone: string | null; instagramHandle: string | null; company: string | null };
   activities: { id: string; type: string; text: string; createdAt: string; user: { name: string } | null }[];
   deals: { id: string; amount: number }[];
+  lostReason: string | null;
+  tasks: { id: string; title: string; dueAt: string; done: boolean }[];
 };
 
-function LeadDrawer({ id, users, onClose, onConvert, onChanged }: { id: string | null; users: User[]; onClose: () => void; onConvert: (id: string) => void; onChanged: () => void }) {
+function LeadDrawer({ id, users, onClose, onConvert, onLost, onChanged }: { id: string | null; users: User[]; onClose: () => void; onConvert: (id: string) => void; onLost: (id: string) => void; onChanged: () => void }) {
   const [d, setD] = React.useState<Detail | null>(null);
   const [note, setNote] = React.useState("");
   const [err, setErr] = React.useState("");
@@ -307,7 +324,7 @@ function LeadDrawer({ id, users, onClose, onConvert, onChanged }: { id: string |
             </div>
             <div>
               <Label>Stage</Label>
-              <Select value={d.stage} onChange={(e) => (e.target.value === "WON" ? onConvert(d.id) : patch({ stage: e.target.value }))}>
+              <Select value={d.stage} onChange={(e) => (e.target.value === "WON" ? onConvert(d.id) : e.target.value === "LOST" ? onLost(d.id) : patch({ stage: e.target.value }))}>
                 {STAGES.map((s) => <option key={s} value={s}>{STAGE_META[s].label}</option>)}
               </Select>
             </div>
@@ -327,9 +344,15 @@ function LeadDrawer({ id, users, onClose, onConvert, onChanged }: { id: string |
             </div>
           </div>
 
+          {d.stage === "LOST" && (
+            <p className="rounded-xl border border-rose-500/20 bg-rose-500/5 px-3 py-2 text-sm"><span className="font-medium text-rose-600">Lost</span> · {d.lostReason ?? "No reason recorded"}</p>
+          )}
+
           {d.stage !== "WON" && d.service !== "UNASSIGNED" && (
             <Button variant="primary" className="w-full" onClick={() => onConvert(d.id)}>Mark as converted customer</Button>
           )}
+
+          <FollowUps leadId={d.id} tasks={d.tasks} onChanged={async () => { await load(); onChanged(); }} />
 
           <div>
             <h3 className="mb-2 text-sm font-semibold">Timeline</h3>
@@ -340,7 +363,7 @@ function LeadDrawer({ id, users, onClose, onConvert, onChanged }: { id: string |
             <ol className="relative space-y-4 border-l pl-5">
               {d.activities.map((a) => (
                 <li key={a.id} className="relative text-sm">
-                  <span className={cn("absolute -left-[26px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-surface", a.type === "CONVERTED" ? "bg-emerald-500" : a.type === "AI" ? "bg-violet-500" : a.type === "NOTE" ? "bg-amber-500" : "bg-accent")} />
+                  <span className={cn("absolute -left-[26px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-surface", a.type === "CONVERTED" ? "bg-emerald-500" : a.type === "AI" ? "bg-violet-500" : a.type === "NOTE" ? "bg-amber-500" : a.type === "TASK" ? "bg-emerald-500" : "bg-accent")} />
                   <p>{a.text}</p>
                   <p className="text-xs text-muted">{a.user?.name ? a.user.name + " · " : ""}{timeAgo(a.createdAt)}</p>
                 </li>
@@ -416,6 +439,97 @@ function ConvertModal({ id, lead, onClose, onDone }: { id: string | null; lead?:
         <div className="flex justify-end gap-2">
           <Button type="button" onClick={onClose}>Cancel</Button>
           <Button type="submit" variant="primary">Record revenue</Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+const inDays = (n: number) => new Date(Date.now() + n * 86400_000).toISOString().slice(0, 10);
+const dueLabel = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+
+function FollowUps({ leadId, tasks, onChanged }: { leadId: string; tasks: Detail["tasks"]; onChanged: () => Promise<void> }) {
+  const [title, setTitle] = React.useState("");
+  const [due, setDue] = React.useState(inDays(1));
+  const [err, setErr] = React.useState("");
+  const today = new Date().toISOString().slice(0, 10);
+
+  async function add() {
+    if (!title.trim()) return;
+    setErr("");
+    try {
+      await call("/api/tasks", "POST", { leadId, title, dueAt: due });
+      setTitle("");
+      await onChanged();
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  }
+  async function toggle(id: string, done: boolean) {
+    await call(`/api/tasks/${id}`, "PATCH", { done });
+    await onChanged();
+  }
+  async function remove(id: string) {
+    await call(`/api/tasks/${id}`, "DELETE");
+    await onChanged();
+  }
+
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-semibold">Follow-ups</h3>
+      <ul className="mb-3 space-y-1.5">
+        {tasks.map((t) => (
+          <li key={t.id} className="flex items-center gap-2.5 rounded-lg border px-3 py-2 text-sm">
+            <input type="checkbox" aria-label={`Mark "${t.title}" done`} checked={t.done} onChange={() => toggle(t.id, !t.done)} className="h-4 w-4 accent-indigo-500" />
+            <span className={cn("flex-1 truncate", t.done && "text-muted line-through")}>{t.title}</span>
+            <span className={cn("text-xs tabular-nums", !t.done && t.dueAt.slice(0, 10) < today ? "font-semibold text-rose-600" : "text-muted")}>{dueLabel(t.dueAt)}</span>
+            <button onClick={() => remove(t.id)} aria-label="Delete follow-up" className="text-muted hover:text-rose-600"><Trash2 size={14} /></button>
+          </li>
+        ))}
+        {tasks.length === 0 && <li className="text-xs text-muted">No follow-ups yet.</li>}
+      </ul>
+      <div className="flex flex-wrap gap-2">
+        <Input className="min-w-40 flex-1" value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="e.g. Send proposal, call back…" />
+        <Input className="w-auto" type="date" value={due} min={today} onChange={(e) => setDue(e.target.value)} aria-label="Due date" />
+        <Button onClick={add} disabled={!title.trim()}>Add</Button>
+      </div>
+      <div className="mt-2 flex gap-1.5 text-xs">
+        {([["Tomorrow", 1], ["In 3 days", 3], ["Next week", 7]] as const).map(([l, n]) => (
+          <button key={l} type="button" onClick={() => setDue(inDays(n))} className={cn("rounded-full border px-2.5 py-1 hover:bg-surface-2", due === inDays(n) && "border-accent text-accent")}>{l}</button>
+        ))}
+      </div>
+      {err && <p className="mt-2 text-xs text-rose-600">{err}</p>}
+    </div>
+  );
+}
+
+function LostModal({ id, name, onClose, onDone }: { id: string | null; name?: string; onClose: () => void; onDone: () => void }) {
+  const [reason, setReason] = React.useState<string>(LOST_REASONS[0]);
+  const [err, setErr] = React.useState("");
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      await call(`/api/leads/${id}`, "PATCH", { stage: "LOST", lostReason: reason });
+      onDone();
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  }
+  return (
+    <Modal open={!!id} onClose={onClose} title="Mark as lost">
+      <form onSubmit={submit} className="space-y-3">
+        <p className="text-sm text-muted">Why was {name ?? "this lead"} lost? It shows up in Reports so you can see what to fix.</p>
+        <div>
+          <Label>Reason</Label>
+          <Select value={reason} onChange={(e) => setReason(e.target.value)} autoFocus>
+            {LOST_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+          </Select>
+        </div>
+        {err && <p className="text-sm text-rose-600">{err}</p>}
+        <div className="flex justify-end gap-2">
+          <Button type="button" onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="danger">Mark as lost</Button>
         </div>
       </form>
     </Modal>

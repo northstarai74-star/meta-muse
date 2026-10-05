@@ -59,8 +59,8 @@ export function Select({ className, ...p }: React.SelectHTMLAttributes<HTMLSelec
 export function Textarea({ className, ...p }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea className={cn(field, "h-auto min-h-20 py-2", className)} {...p} />;
 }
-export function Label({ children }: { children: React.ReactNode }) {
-  return <label className="mb-1 block text-xs font-medium text-muted">{children}</label>;
+export function Label({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) {
+  return <label htmlFor={htmlFor} className="mb-1 block text-xs font-medium text-muted">{children}</label>;
 }
 
 export function Avatar({ name, color = "#6366f1", size = 32 }: { name: string; color?: string; size?: number }) {
@@ -120,7 +120,7 @@ export function Sheet({ open, onClose, title, children, wide }: { open: boolean;
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
-      <aside className={cn("slide-in absolute right-0 top-0 flex h-full w-full flex-col border-l bg-surface shadow-2xl", wide ? "max-w-xl" : "max-w-md")}>
+      <aside role="dialog" aria-modal="true" aria-label={title} className={cn("slide-in absolute right-0 top-0 flex h-full w-full flex-col border-l bg-surface shadow-2xl", wide ? "max-w-xl" : "max-w-md")}>
         <header className="flex items-center justify-between border-b px-5 py-4">
           <h2 className="text-base font-semibold">{title}</h2>
           <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-surface-2" aria-label="Close">
@@ -144,7 +144,7 @@ export function Modal({ open, onClose, title, children }: { open: boolean; onClo
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="animate-in relative w-full max-w-md rounded-2xl border bg-surface p-5 shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-label={title} className="animate-in relative w-full max-w-md rounded-2xl border bg-surface p-5 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold">{title}</h2>
           <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-surface-2" aria-label="Close">

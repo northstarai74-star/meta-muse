@@ -14,6 +14,7 @@ export const GET = route<Ctx>(async (_req, { params }) => {
       assignedUser: { select: { id: true, name: true, avatarColor: true } },
       activities: { orderBy: { createdAt: "desc" }, include: { user: { select: { name: true } } } },
       deals: true,
+      tasks: { orderBy: [{ done: "asc" }, { dueAt: "asc" }] },
     },
   });
   if (!lead) return json({ error: "Not found" }, 404);
@@ -26,6 +27,7 @@ const Patch = z.object({
   assignedAgent: z.enum(["AI", "HUMAN"]).optional(),
   assignedUserId: z.string().nullable().optional(),
   estimatedValue: z.number().min(0).optional(),
+  lostReason: z.string().trim().max(80).optional(),
 });
 
 export const PATCH = route<Ctx>(async (req, { params }, user) => {
@@ -41,12 +43,14 @@ export const PATCH = route<Ctx>(async (req, { params }, user) => {
     return json({ error: "Team member not found" }, 400);
   }
 
-  const lead = await db.lead.update({ where: { id }, data: patch });
+  // The reason only makes sense while the lead is lost; clear it when it's reopened.
+  const data = patch.stage && patch.stage !== "LOST" ? { ...patch, lostReason: null } : patch;
+  const lead = await db.lead.update({ where: { id }, data });
   // keep revenue attribution in step with the lead's service
   if (patch.service && patch.service !== "UNASSIGNED") await db.deal.updateMany({ where: { leadId: id }, data: { service: patch.service } });
 
   const notes: { type: string; text: string }[] = [];
-  if (patch.stage && patch.stage !== before.stage) notes.push({ type: "STAGE", text: `Stage moved to ${STAGE_META[patch.stage].label}` });
+  if (patch.stage && patch.stage !== before.stage) notes.push({ type: "STAGE", text: `Stage moved to ${STAGE_META[patch.stage].label}${patch.stage === "LOST" && patch.lostReason ? ` — ${patch.lostReason}` : ""}` });
   if (patch.service && patch.service !== before.service) notes.push({ type: "ASSIGNED", text: `Assigned to ${SERVICE_META[patch.service].label}` });
   if (patch.assignedAgent && patch.assignedAgent !== before.assignedAgent)
     notes.push({ type: "ASSIGNED", text: patch.assignedAgent === "AI" ? "Handed to the AI agent" : "Handed to a human" });

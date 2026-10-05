@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Send, Sparkles, UserPlus } from "lucide-react";
-import { Avatar, Button, Card, Empty, ScoreBadge, ServiceBadge, StageBadge } from "./ui";
+import { Avatar, Button, Card, Empty, Input, Label, Modal, ScoreBadge, Select, ServiceBadge, StageBadge } from "./ui";
 import { cn, timeAgo } from "@/lib/utils";
 
 type Msg = { id: string; direction: string; text: string; sentAt: string };
@@ -22,13 +22,17 @@ async function post(url: string, body?: unknown) {
   return data;
 }
 
-export function InboxView({ convos, initialId }: { convos: Convo[]; initialId: string | null }) {
+type Template = { id: string; title: string; body: string };
+
+export function InboxView({ convos, initialId, templates }: { convos: Convo[]; initialId: string | null; templates: Template[] }) {
   const router = useRouter();
   const [activeId, setActiveId] = React.useState<string | null>(initialId);
   const [mobileThread, setMobileThread] = React.useState(false);
   const [draft, setDraft] = React.useState("");
   const [busy, setBusy] = React.useState("");
   const [err, setErr] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+  const [tplTitle, setTplTitle] = React.useState("");
   const endRef = React.useRef<HTMLDivElement>(null);
   const active = convos.find((c) => c.id === activeId) ?? null;
 
@@ -56,6 +60,18 @@ export function InboxView({ convos, initialId }: { convos: Convo[]; initialId: s
       if (!draft.trim()) return;
       await post(`/api/conversations/${active!.id}/send`, { text: draft });
       setDraft("");
+      router.refresh();
+    });
+  const firstName = (active?.contact.name ?? "").split(/\s+/)[0] || "there";
+  const insertTemplate = (id: string) => {
+    const t = templates.find((x) => x.id === id);
+    if (t) setDraft(t.body.replace(/\{\{\s*name\s*\}\}/gi, firstName));
+  };
+  const saveTemplate = () =>
+    run("tpl", async () => {
+      await post("/api/templates", { title: tplTitle, body: draft });
+      setSaving(false);
+      setTplTitle("");
       router.refresh();
     });
   const makeLead = () => run("lead", async () => { await post(`/api/conversations/${active!.id}/lead`); router.refresh(); });
@@ -112,6 +128,13 @@ export function InboxView({ convos, initialId }: { convos: Convo[]; initialId: s
           </div>
           <div className="border-t p-3">
             {err && <p className="mb-2 text-xs text-rose-600">{err}</p>}
+            <div className="mb-2 flex items-center gap-2">
+              <Select className="h-8 w-auto max-w-56 text-xs" value="" onChange={(e) => insertTemplate(e.target.value)} aria-label="Insert quick reply">
+                <option value="">{templates.length ? "Quick replies…" : "No quick replies yet"}</option>
+                {templates.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+              </Select>
+              {draft.trim() && <button type="button" onClick={() => setSaving(true)} className="text-xs font-medium text-accent hover:underline">Save as quick reply</button>}
+            </div>
             <div className="flex items-end gap-2">
               <textarea
                 value={draft}
@@ -159,6 +182,17 @@ export function InboxView({ convos, initialId }: { convos: Convo[]; initialId: s
           </div>
         </aside>
       )}
+      <Modal open={saving} onClose={() => setSaving(false)} title="Save as quick reply">
+        <form onSubmit={(e) => { e.preventDefault(); saveTemplate(); }} className="space-y-3">
+          <div><Label>Title</Label><Input value={tplTitle} onChange={(e) => setTplTitle(e.target.value)} placeholder="e.g. Pricing intro" maxLength={60} required autoFocus /></div>
+          <p className="rounded-lg bg-surface-2 px-3 py-2 text-xs text-muted">{draft}</p>
+          <p className="text-xs text-muted">Tip: write <code>{"{{name}}"}</code> where the contact&apos;s first name should go.</p>
+          <div className="flex justify-end gap-2">
+            <Button type="button" onClick={() => setSaving(false)}>Cancel</Button>
+            <Button type="submit" variant="primary" disabled={busy === "tpl" || !tplTitle.trim()}>Save</Button>
+          </div>
+        </form>
+      </Modal>
     </Card>
   );
 }

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AtSign, Mail, Phone, Plus, Search } from "lucide-react";
+import { AtSign, Download, Mail, Phone, Plus, Search, Upload } from "lucide-react";
 import { Avatar, Button, Card, Empty, Input, Label, Modal, ServiceBadge, Textarea } from "./ui";
 import { SOURCE_META } from "@/lib/constants";
 import { money } from "@/lib/utils";
@@ -50,6 +50,7 @@ export function ContactsView({ contacts }: { contacts: Row[] }) {
   const router = useRouter();
   const [q, setQ] = React.useState("");
   const [adding, setAdding] = React.useState(false);
+  const [importing, setImporting] = React.useState(false);
   const needle = q.trim().toLowerCase();
   const rows = contacts.filter((c) => !needle || [c.name, c.email, c.phone, c.instagramHandle, c.company].some((v) => v?.toLowerCase().includes(needle)));
 
@@ -61,6 +62,8 @@ export function ContactsView({ contacts }: { contacts: Row[] }) {
           <Input className="pl-9" placeholder="Search contacts…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         <span className="text-xs text-muted">{rows.length} contacts</span>
+        <a href="/api/export/contacts" download className="inline-flex h-9 items-center gap-2 rounded-lg border bg-surface px-3 text-sm font-medium hover:bg-surface-2"><Download size={15} /> Export</a>
+        <Button onClick={() => setImporting(true)}><Upload size={15} /> Import CSV</Button>
         <Button variant="primary" onClick={() => setAdding(true)}><Plus size={16} /> Add contact</Button>
       </Card>
 
@@ -108,9 +111,65 @@ export function ContactsView({ contacts }: { contacts: Row[] }) {
         {rows.length === 0 && <Empty title="No contacts found" />}
       </Card>
 
+      <ImportModal open={importing} onClose={() => setImporting(false)} onDone={() => router.refresh()} />
       <Modal open={adding} onClose={() => setAdding(false)} title="Add contact">
         <ContactForm onCancel={() => setAdding(false)} onDone={() => { setAdding(false); router.refresh(); }} />
       </Modal>
     </>
+  );
+}
+
+function ImportModal({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
+  const [csv, setCsv] = React.useState("");
+  const [file, setFile] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState("");
+  const [result, setResult] = React.useState<{ created: number; skipped: number; problems: string[] } | null>(null);
+
+  async function pick(f?: File) {
+    if (!f) return;
+    setErr("");
+    setResult(null);
+    setFile(f.name);
+    setCsv(await f.text());
+  }
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setErr("");
+    const res = await fetch("/api/contacts/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ csv }) });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) return setErr(data.error ?? "Import failed");
+    setResult(data);
+    onDone();
+  }
+  function close() {
+    setCsv("");
+    setFile("");
+    setResult(null);
+    setErr("");
+    onClose();
+  }
+
+  return (
+    <Modal open={open} onClose={close} title="Import contacts">
+      <form onSubmit={submit} className="space-y-3">
+        <p className="text-sm text-muted">Upload a CSV with a header row. Recognised columns: <b>Name, Email, Phone, Instagram, Company, Notes</b>. Contacts whose email already exists are skipped.</p>
+        <input type="file" accept=".csv,text/csv" onChange={(e) => pick(e.target.files?.[0])} className="block w-full text-sm file:mr-3 file:rounded-lg file:border file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium" aria-label="CSV file" />
+        {file && <p className="text-xs text-muted">{file}</p>}
+        {err && <p role="alert" className="text-sm text-rose-600">{err}</p>}
+        {result && (
+          <div role="status" className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm">
+            <p className="font-medium text-emerald-700 dark:text-emerald-300">Imported {result.created} contact{result.created === 1 ? "" : "s"}{result.skipped ? `, skipped ${result.skipped}` : ""}.</p>
+            {result.problems.map((p) => <p key={p} className="text-xs text-muted">{p}</p>)}
+          </div>
+        )}
+        <div className="flex justify-end gap-2">
+          <Button type="button" onClick={close}>{result ? "Done" : "Cancel"}</Button>
+          {!result && <Button type="submit" variant="primary" disabled={!csv || busy}>{busy ? "Importing…" : "Import"}</Button>}
+        </div>
+      </form>
+    </Modal>
   );
 }
