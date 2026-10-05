@@ -33,22 +33,25 @@ export const PATCH = route<Ctx>(async (req, { params }, user) => {
   const patch = Patch.parse(await req.json());
   const before = await db.lead.findUnique({ where: { id } });
   if (!before) return json({ error: "Not found" }, 404);
+  if (patch.stage === "WON" && before.stage !== "WON") {
+    return json({ error: "Use convert to mark a lead as won so the revenue is recorded" }, 400);
+  }
 
   const lead = await db.lead.update({ where: { id }, data: patch });
   // keep revenue attribution in step with the lead's service
   if (patch.service && patch.service !== "UNASSIGNED") await db.deal.updateMany({ where: { leadId: id }, data: { service: patch.service } });
 
-  const notes: string[] = [];
-  if (patch.stage && patch.stage !== before.stage) notes.push(`Stage moved to ${STAGE_META[patch.stage].label}`);
-  if (patch.service && patch.service !== before.service) notes.push(`Assigned to ${SERVICE_META[patch.service].label}`);
+  const notes: { type: string; text: string }[] = [];
+  if (patch.stage && patch.stage !== before.stage) notes.push({ type: "STAGE", text: `Stage moved to ${STAGE_META[patch.stage].label}` });
+  if (patch.service && patch.service !== before.service) notes.push({ type: "ASSIGNED", text: `Assigned to ${SERVICE_META[patch.service].label}` });
   if (patch.assignedAgent && patch.assignedAgent !== before.assignedAgent)
-    notes.push(patch.assignedAgent === "AI" ? "Handed to the AI agent" : "Handed to a human");
+    notes.push({ type: "ASSIGNED", text: patch.assignedAgent === "AI" ? "Handed to the AI agent" : "Handed to a human" });
   if (patch.assignedUserId !== undefined && patch.assignedUserId !== before.assignedUserId) {
     const u = patch.assignedUserId ? await db.user.findUnique({ where: { id: patch.assignedUserId } }) : null;
-    notes.push(u ? `Assigned to ${u.name}` : "Unassigned from team member");
+    notes.push({ type: "ASSIGNED", text: u ? `Assigned to ${u.name}` : "Unassigned from team member" });
   }
-  for (const text of notes) {
-    await db.activity.create({ data: { leadId: id, userId: user.id, type: "ASSIGNED", text } });
+  for (const n of notes) {
+    await db.activity.create({ data: { leadId: id, userId: user.id, ...n } });
   }
   return json(lead);
 });

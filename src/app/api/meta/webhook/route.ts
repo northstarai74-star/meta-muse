@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
-import { fetchLeadgen, fetchProfile, getConnection, verifySignature } from "@/lib/meta";
+import { fetchLeadgen, fetchProfile, getConnection, safeEqual, verifySignature } from "@/lib/meta";
 import { ingestComment, ingestLeadAd, ingestMessage } from "@/lib/ingest";
 
 // Public endpoint (excluded from the login proxy). Protected by Meta's verify token + HMAC signature.
@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   const conn = await getConnection();
   if (
     url.searchParams.get("hub.mode") === "subscribe" &&
-    url.searchParams.get("hub.verify_token") === conn.verifyToken
+    safeEqual(url.searchParams.get("hub.verify_token"), conn.verifyToken)
   ) {
     await db.metaConnection.update({ where: { id: "singleton" }, data: { connected: true } });
     return new NextResponse(url.searchParams.get("hub.challenge") ?? "", { status: 200 });
@@ -42,7 +42,12 @@ export async function POST(req: Request) {
     return new NextResponse("Invalid signature", { status: 403 });
   }
 
-  const payload = JSON.parse(raw) as { object?: string; entry?: Entry[] };
+  let payload: { object?: string; entry?: Entry[] };
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    return new NextResponse("Invalid JSON", { status: 400 });
+  }
 
   // Respond fast to Meta (<5s) but process inline; failures are logged, not retried by us.
   for (const entry of payload.entry ?? []) {

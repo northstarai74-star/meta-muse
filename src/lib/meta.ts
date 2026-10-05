@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { db } from "./db";
 import { decrypt } from "./crypto";
 import { withKey, ProviderError } from "./keys";
@@ -8,9 +8,17 @@ export const GRAPH = "https://graph.facebook.com/v23.0";
 export async function getConnection() {
   return db.metaConnection.upsert({
     where: { id: "singleton" },
-    create: { id: "singleton", verifyToken: "bos_" + Math.random().toString(36).slice(2, 12) },
+    create: { id: "singleton", verifyToken: "bos_" + randomBytes(12).toString("hex") },
     update: {},
   });
+}
+
+/** Constant-time string comparison (for webhook verify tokens). */
+export function safeEqual(a: string | null, b: string) {
+  if (a === null) return false;
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
 }
 
 export function verifySignature(rawBody: string, header: string | null, appSecret: string) {

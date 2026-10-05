@@ -63,7 +63,11 @@ src/app/api/meta/webhook  public Meta webhook
 src/app/(app)/*           pages          src/components/*   UI
 ```
 
+## Checks
+
+`npm run lint`, `npm run typecheck`, `npm test` and `npm run build` run on every push/PR via `.github/workflows/ci.yml`.
+
 ## Notes
 
-- Built for personal/local use. Before exposing it publicly: set strong secrets, serve over HTTPS, and add login rate-limiting.
+- Built for personal/local use. Before exposing it publicly: set strong secrets and serve over HTTPS. Login is rate-limited (10 failed attempts / 15 min per IP, in-memory — use a shared store if you run multiple instances).
 - SQLite file lives at `prisma/dev.db`; the schema is portable to Postgres by changing the datasource provider.

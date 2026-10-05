@@ -12,6 +12,7 @@ export const POST = route<Ctx>(async (req, { params }, user) => {
   const { amount } = Body.parse(await req.json());
   const lead = await db.lead.findUnique({ where: { id } });
   if (!lead) return json({ error: "Not found" }, 404);
+  if (lead.stage === "WON") return json({ error: "This lead is already converted" }, 409);
   if (lead.service === "UNASSIGNED") return json({ error: "Assign a service before converting" }, 400);
 
   const [deal] = await db.$transaction([
