@@ -13,7 +13,7 @@ npm run db:seed     # creates demo data + the admin user (see .env)
 npm run dev         # http://localhost:3000
 ```
 
-Login: `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env` (defaults in `.env.example`). Change the password and both secrets in `.env` before using real data.
+Login: just `ADMIN_PASSWORD` from `.env` (defaults in `.env.example`) — the email field is optional. Entering an email (`ADMIN_EMAIL`) still works and is the unambiguous way to sign in once team members have their own passwords; without an email, the password is matched against all accounts (admins first), so keep passwords unique. Change the password and both secrets in `.env` before using real data.
 `npm run db:seed` **wipes leads/contacts/team** and recreates demo data — don't run it once you have real data.
 
 ## What's inside

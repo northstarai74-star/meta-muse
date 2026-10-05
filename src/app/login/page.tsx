@@ -19,7 +19,7 @@ export default function LoginPage() {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email: email.trim(), password }),
     });
     if (res.ok) {
       router.replace("/");
@@ -64,12 +64,12 @@ export default function LoginPage() {
             <p className="mt-1 text-sm text-muted">Sign in to your workspace</p>
           </div>
           <div>
-            <Label>Email</Label>
-            <Input type="email" required autoFocus autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+            <Label>Email <span className="font-normal text-muted">(optional)</span></Label>
+            <Input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
           </div>
           <div>
             <Label>Password</Label>
-            <Input type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+            <Input type="password" required autoFocus autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
           </div>
           {error && <p role="alert" className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-600">{error}</p>}
           <Button type="submit" variant="primary" className="w-full" disabled={busy}>
