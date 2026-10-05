@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Vanita Business OS
 
-## Getting Started
+A personal CRM / operating system for three business lines: **AI Voice Receptionist**, **Web Development** and **Dropshipping**.
+It captures Instagram DMs, comments and Meta Lead Ads, classifies each lead with Claude, assigns it to an AI agent or team member, and tracks leads → converted customers → revenue.
 
-First, run the development server:
+Stack: Next.js 16 (App Router) · TypeScript · Tailwind v4 · Prisma 6 + SQLite · Recharts.
+
+## Run it
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run db:seed     # creates demo data + the admin user (see .env)
+npm run dev         # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Login: `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env` (defaults in `.env.example`). Change the password and both secrets in `.env` before using real data.
+`npm run db:seed` **wipes leads/contacts/team** and recreates demo data — don't run it once you have real data.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## What's inside
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Page | What it does |
+|---|---|
+| Dashboard | Total / Dropshipping / AI Voice / Web Dev leads, converted customers, revenue, conversion rate, charts, funnel, activity |
+| Leads | Table + drag-and-drop kanban, filters, bulk assign to a service / AI agent / team member, lead drawer with timeline, convert-to-customer (records revenue) |
+| Inbox | Instagram DMs: threads, reply, "Suggest" (Claude draft), create lead from thread |
+| Comments & Enquiries | Triage IG comments and lead-ad forms; reply, convert to lead |
+| Contacts | CRM: name, contact info, services, assigned team, lifetime value, edit |
+| Team | Members, workload, auto-assignment rules per service (AI agent or person) |
+| Integrations | Meta connection + webhook details, **multi-key vault** for Meta / Claude / Higgsfield |
+| Settings | Demo mode, auto-assign, Claude model |
 
-## Learn More
+## Demo mode vs live
 
-To learn more about Next.js, take a look at the following resources:
+Demo mode (default) uses built-in keyword classification, never calls Claude and never sends anything through Meta.
+Integrations → "Simulate incoming Meta events" pushes fake DMs/comments/lead ads through the same pipeline the real webhook uses.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+To go live:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Create a Meta app (Business type) with the Instagram and Webhooks products; connect your Instagram professional account to a Facebook Page.
+2. Expose the app over HTTPS (e.g. `ngrok http 3000` or a Cloudflare tunnel) and set `APP_URL` in `.env`.
+3. In **Integrations**: save App ID, App secret (used to verify Meta's `X-Hub-Signature-256`), Page ID, Instagram business ID and a long-lived Page access token.
+4. In Meta's webhook settings use the callback URL and verify token shown in Integrations; subscribe to `messages`, `comments` and `leadgen`.
+   Permissions needed: `instagram_manage_messages`, `instagram_manage_comments`, `pages_messaging`, `pages_manage_metadata`, `leads_retrieval`, `pages_show_list`.
+   Messaging/lead access requires Meta App Review for anyone other than app roles/testers.
+5. Add at least one Claude key, then turn off **Demo mode** in Settings.
 
-## Deploy on Vercel
+## API keys
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Keys are encrypted at rest (AES-256-GCM, `ENCRYPTION_KEY`) and never returned by the API — only the last 4 characters.
+You can add several keys per provider. `withKey()` in `src/lib/keys.ts` uses them round-robin by priority; a `429` marks a key *rate limited* (retried after 5 min) and a `401/403` disables it, then the next key is tried automatically.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Higgsfield keys are stored but nothing calls Higgsfield yet, and its **Test** button does not verify the key.
+
+## Layout
+
+```
+prisma/schema.prisma      data model       prisma/seed.ts   demo data
+src/proxy.ts              login gate       src/lib/session.ts   JWT cookie session
+src/lib/ingest.ts         lead capture + auto-assignment
+src/lib/ai/classify.ts    Claude classification / reply drafts (+ offline fallback)
+src/lib/meta.ts           Graph API client, signature check
+src/app/api/meta/webhook  public Meta webhook
+src/app/(app)/*           pages          src/components/*   UI
+```
+
+## Notes
+
+- Built for personal/local use. Before exposing it publicly: set strong secrets, serve over HTTPS, and add login rate-limiting.
+- SQLite file lives at `prisma/dev.db`; the schema is portable to Postgres by changing the datasource provider.

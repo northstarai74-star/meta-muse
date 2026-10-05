@@ -1,0 +1,195 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Enum-like string columns (kept as String for SQLite/Postgres portability).
+// ROLE: ADMIN | MEMBER
+// SERVICE: AI_VOICE | WEB_DEV | DROPSHIPPING | UNASSIGNED
+// STAGE: NEW | CONTACTED | QUALIFIED | PROPOSAL | WON | LOST
+// SOURCE: META_DM | META_COMMENT | META_LEAD_AD | MANUAL
+// AGENT: AI | HUMAN
+// PROVIDER: META | CLAUDE | HIGGSFIELD
+// KEY STATUS: ACTIVE | DISABLED | RATE_LIMITED
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("MEMBER")
+  title        String?
+  avatarColor  String   @default("#6366f1")
+  createdAt    DateTime @default(now())
+
+  leads      Lead[]
+  activities Activity[]
+  rules      AssignmentRule[]
+}
+
+model Contact {
+  id              String   @id @default(cuid())
+  name            String
+  email           String?
+  phone           String?
+  instagramHandle String?
+  igUserId        String?  @unique
+  company         String?
+  notes           String?
+  source          String   @default("MANUAL")
+  createdAt       DateTime @default(now())
+
+  leads         Lead[]
+  conversations Conversation[]
+  comments      Comment[]
+}
+
+model Lead {
+  id              String   @id @default(cuid())
+  contactId       String
+  contact         Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  title           String
+  source          String   @default("MANUAL")
+  service         String   @default("UNASSIGNED")
+  stage           String   @default("NEW")
+  score           Int      @default(0)
+  aiSummary       String?
+  assignedAgent   String   @default("HUMAN")
+  assignedUserId  String?
+  assignedUser    User?    @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
+  estimatedValue  Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  deals       Deal[]
+  activities  Activity[]
+  comments    Comment[]
+  enquiries   Enquiry[]
+
+  @@index([service])
+  @@index([stage])
+  @@index([createdAt])
+}
+
+model Deal {
+  id        String    @id @default(cuid())
+  leadId    String
+  lead      Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  service   String
+  amount    Float
+  status    String    @default("PAID") // PENDING | PAID
+  paidAt    DateTime  @default(now())
+
+  @@index([paidAt])
+}
+
+model Conversation {
+  id          String    @id @default(cuid())
+  contactId   String
+  contact     Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  platform    String    @default("INSTAGRAM")
+  externalId  String?   @unique
+  unread      Int       @default(0)
+  lastMessageAt DateTime @default(now())
+  messages    Message[]
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  externalId     String?      @unique
+  direction      String       // IN | OUT
+  text           String
+  sentAt         DateTime     @default(now())
+
+  @@index([conversationId, sentAt])
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  externalId String?  @unique
+  contactId  String?
+  contact    Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  leadId     String?
+  lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  postRef    String?
+  author     String
+  text       String
+  handled    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model Enquiry {
+  id        String   @id @default(cuid())
+  externalId String? @unique
+  leadId    String?
+  lead      Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  formName  String?
+  name      String?
+  email     String?
+  phone     String?
+  message   String?
+  raw       String?  // JSON payload
+  handled   Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model ApiKey {
+  id             String    @id @default(cuid())
+  provider       String
+  label          String
+  encryptedValue String
+  keyHint        String    // last 4 chars for display
+  status         String    @default("ACTIVE")
+  priority       Int       @default(0)
+  usageCount     Int       @default(0)
+  lastUsedAt     DateTime?
+  lastError      String?
+  createdAt      DateTime  @default(now())
+
+  @@index([provider, status])
+}
+
+model MetaConnection {
+  id            String   @id @default("singleton")
+  appId         String?
+  appSecretEnc  String?
+  pageId        String?
+  igBusinessId  String?
+  accessTokenEnc String?
+  verifyToken   String
+  connected     Boolean  @default(false)
+  lastSyncAt    DateTime?
+  updatedAt     DateTime @updatedAt
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  type      String   // CREATED | ASSIGNED | STAGE | NOTE | AI | CONVERTED
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([leadId, createdAt])
+}
+
+model AssignmentRule {
+  id      String  @id @default(cuid())
+  service String  @unique
+  agent   String  @default("HUMAN") // AI | HUMAN
+  userId  String?
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model Setting {
+  key   String @id
+  value String
+}
