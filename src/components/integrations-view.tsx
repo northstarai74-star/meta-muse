@@ -7,6 +7,7 @@ import { Button, Card, CardHeader, Input, Label, Modal, Select, Toggle } from ".
 import { cn, timeAgo } from "@/lib/utils";
 
 type Key = { id: string; provider: string; label: string; keyHint: string; status: string; priority: number; usageCount: number; lastUsedAt: string | null; lastError: string | null };
+type Token = { id: string; label: string; hint: string; lastUsedAt: string | null; createdAt: string };
 type Meta = { appId: string; pageId: string; igBusinessId: string; verifyToken: string; hasSecret: boolean; hasToken: boolean; connected: boolean; lastSyncAt: string | null };
 
 const PROVIDERS = [
@@ -37,13 +38,17 @@ function CopyField({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function IntegrationsView({ keys, meta, webhookUrl, isAdmin, demoMode }: { keys: Key[]; meta: Meta; webhookUrl: string; isAdmin: boolean; demoMode: boolean }) {
+export function IntegrationsView({ keys, meta, webhookUrl, isAdmin, demoMode, tokens, apiBase }: { keys: Key[]; meta: Meta; webhookUrl: string; isAdmin: boolean; demoMode: boolean; tokens: Token[]; apiBase: string }) {
   const router = useRouter();
   const [msg, setMsg] = React.useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = React.useState("");
   const [adding, setAdding] = React.useState<string | null>(null);
   const [form, setForm] = React.useState({ label: "", secret: "", priority: "0" });
   const [mf, setMf] = React.useState({ appId: meta.appId, appSecret: "", pageId: meta.pageId, igBusinessId: meta.igBusinessId, accessToken: "" });
+
+  const [tokenForm, setTokenForm] = React.useState<{ open: boolean; label: string; created: string | null }>({ open: false, label: "", created: null });
+  const createToken = (e: React.FormEvent) => { e.preventDefault(); run("token", async () => { const r = await api("/api/tokens", "POST", { label: tokenForm.label }); setTokenForm({ open: true, label: "", created: r.token }); router.refresh(); }); };
+  const revokeToken = (tk: Token) => { if (confirm(`Revoke token “${tk.label}”? Anything using it will stop working.`)) run(tk.id, async () => { await api(`/api/tokens/${tk.id}`, "DELETE"); router.refresh(); }); };
 
   const flash = (ok: boolean, text: string) => { setMsg({ ok, text }); setTimeout(() => setMsg(null), 5000); };
   async function run(id: string, fn: () => Promise<void>) {
@@ -151,6 +156,57 @@ export function IntegrationsView({ keys, meta, webhookUrl, isAdmin, demoMode }: 
           </Card>
         );
       })}
+
+      <Card>
+        <CardHeader
+          title="Automation API (n8n and other tools)"
+          subtitle="Tokens let n8n add leads and read stats without a login. A token can only use the two endpoints below."
+          action={isAdmin && <Button size="sm" onClick={() => setTokenForm({ open: true, label: "", created: null })}><Plus size={14} /> New token</Button>}
+        />
+        <div className="space-y-4 px-5 pb-5">
+          {tokens.length === 0 ? (
+            <p className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted">No tokens yet.</p>
+          ) : (
+            <ul className="divide-y rounded-xl border">
+              {tokens.map((tk) => (
+                <li key={tk.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{tk.label} <span className="font-mono text-xs font-normal text-muted">nsk_····{tk.hint}</span></p>
+                    <p className="text-xs text-muted">Created {timeAgo(tk.createdAt)} · {tk.lastUsedAt ? `last used ${timeAgo(tk.lastUsedAt)}` : "never used"}</p>
+                  </div>
+                  {isAdmin && <button onClick={() => revokeToken(tk)} aria-label={`Revoke ${tk.label}`} className="rounded-lg p-1.5 text-muted hover:bg-rose-500/10 hover:text-rose-600"><Trash2 size={15} /></button>}
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="space-y-2 text-xs">
+            <p className="font-medium">Add a lead (n8n HTTP Request node: POST, header <code>Authorization: Bearer &lt;token&gt;</code>)</p>
+            <pre className="overflow-x-auto rounded-xl bg-surface-2 p-3 font-mono text-[11px] leading-relaxed">{`POST ${apiBase}/api/ingest/lead
+{ "name": "Jane Smith", "email": "jane@smilebright.co.uk",
+  "company": "Smile Bright Dental", "industry": "dental clinic", "country": "UK",
+  "service": "AI_VOICE", "source": "COLD_EMAIL", "stage": "QUALIFIED",
+  "message": "Replied: interested in a demo" }`}</pre>
+            <p className="text-muted">Leave out <code>service</code> and Claude classifies the <code>message</code>. People marked do-not-contact, and people already in the pipeline for that service, are skipped (the response says so).</p>
+            <p className="font-medium">Read stats</p>
+            <pre className="overflow-x-auto rounded-xl bg-surface-2 p-3 font-mono text-[11px]">{`GET ${apiBase}/api/ingest/stats?range=30`}</pre>
+          </div>
+        </div>
+      </Card>
+
+      <Modal open={tokenForm.open} onClose={() => setTokenForm({ open: false, label: "", created: null })} title={tokenForm.created ? "Copy your token now" : "New API token"}>
+        {tokenForm.created ? (
+          <div className="space-y-3">
+            <p className="text-sm text-muted">This is the only time the token is shown. Paste it into n8n now; if you lose it, revoke it and make a new one.</p>
+            <CopyField label="Token" value={tokenForm.created} />
+            <div className="flex justify-end"><Button variant="primary" onClick={() => setTokenForm({ open: false, label: "", created: null })}>Done</Button></div>
+          </div>
+        ) : (
+          <form onSubmit={createToken} className="space-y-3">
+            <div><Label>Label</Label><Input required autoFocus placeholder="e.g. n8n cold email replies" value={tokenForm.label} onChange={(e) => setTokenForm({ ...tokenForm, label: e.target.value })} /></div>
+            <div className="flex justify-end gap-2"><Button type="button" onClick={() => setTokenForm({ open: false, label: "", created: null })}>Cancel</Button><Button type="submit" variant="primary" disabled={busy === "token"}>Create token</Button></div>
+          </form>
+        )}
+      </Modal>
 
       <Modal open={!!adding} onClose={() => setAdding(null)} title={`Add ${PROVIDERS.find((p) => p.id === adding)?.name ?? ""} key`}>
         <form onSubmit={addKey} className="space-y-3">

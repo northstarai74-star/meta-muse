@@ -9,13 +9,16 @@ export const dynamic = "force-dynamic";
 
 export default async function IntegrationsPage() {
   const me = await getCurrentUser();
-  const [keys, conn, settings] = await Promise.all([
+  const [keys, conn, settings, tokens] = await Promise.all([
     db.apiKey.findMany({
       orderBy: [{ provider: "asc" }, { priority: "asc" }],
       select: { id: true, provider: true, label: true, keyHint: true, status: true, priority: true, usageCount: true, lastUsedAt: true, lastError: true },
     }),
     getConnection(),
     getSettings(),
+    me?.role === "ADMIN"
+      ? db.apiToken.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, label: true, hint: true, lastUsedAt: true, createdAt: true } })
+      : Promise.resolve([]),
   ]);
   const base = process.env.APP_URL ?? "http://localhost:3000";
 
@@ -25,6 +28,8 @@ export default async function IntegrationsPage() {
       <IntegrationsView
         isAdmin={me?.role === "ADMIN"}
         demoMode={settings.demoMode}
+        apiBase={base}
+        tokens={tokens.map((tk) => ({ ...tk, lastUsedAt: tk.lastUsedAt?.toISOString() ?? null, createdAt: tk.createdAt.toISOString() }))}
         webhookUrl={`${base}/api/meta/webhook`}
         meta={{
           appId: conn.appId ?? "",

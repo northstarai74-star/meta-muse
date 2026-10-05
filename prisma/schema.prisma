@@ -11,8 +11,8 @@ datasource db {
 // Enum-like string columns (kept as String for portability).
 // ROLE: ADMIN | MEMBER
 // SERVICE: AI_VOICE | WEB_DEV | DROPSHIPPING | UNASSIGNED
-// STAGE: NEW | CONTACTED | QUALIFIED | PROPOSAL | WON | LOST
-// SOURCE: META_DM | META_COMMENT | META_LEAD_AD | MANUAL
+// STAGE: NEW | CONTACTED | QUALIFIED | DEMO_BOOKED | PROPOSAL | WON | LOST
+// SOURCE: META_DM | META_COMMENT | META_LEAD_AD | MANUAL | COLD_EMAIL | IMPORT | API
 // AGENT: AI | HUMAN
 // PROVIDER: META | CLAUDE | HIGGSFIELD
 // KEY STATUS: ACTIVE | DISABLED | RATE_LIMITED
@@ -40,8 +40,13 @@ model Contact {
   instagramHandle String?
   igUserId        String?  @unique
   company         String?
+  website         String?
+  industry        String?
+  country         String?
   notes           String?
   source          String   @default("MANUAL")
+  doNotContact    Boolean  @default(false) // opted out: never import or message again
+  lawfulBasis     String?  // B2B_CORPORATE | CONSENT | OTHER (UK PECR record)
   createdAt       DateTime @default(now())
 
   leads         Lead[]
@@ -70,6 +75,7 @@ model Lead {
   activities  Activity[]
   comments    Comment[]
   enquiries   Enquiry[]
+  tasks       Task[]
 
   @@index([service])
   @@index([stage])
@@ -193,4 +199,42 @@ model AssignmentRule {
 model Setting {
   key   String @id
   value String
+}
+
+/// Follow-up reminder on a lead ("due today" list on the dashboard).
+model Task {
+  id        String    @id @default(cuid())
+  leadId    String
+  lead      Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  title     String
+  dueAt     DateTime
+  done      Boolean   @default(false)
+  doneAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([done, dueAt])
+}
+
+/// Money going out. Amounts are stored in their own currency (INR | GBP | USD) and converted for reporting.
+model Expense {
+  id          String   @id @default(cuid())
+  category    String   // ADS | TOOLS | DOMAINS_EMAIL | AI_API | VOICE | LEAD_DATA | OTHER
+  description String?
+  amount      Float
+  currency    String   @default("INR")
+  service     String   @default("GENERAL") // AI_VOICE | WEB_DEV | DROPSHIPPING | GENERAL
+  incurredAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([incurredAt])
+}
+
+/// Bearer tokens for n8n and other automation. Only a SHA-256 hash is stored; the token is shown once.
+model ApiToken {
+  id         String    @id @default(cuid())
+  label      String
+  tokenHash  String    @unique
+  hint       String    // last 4 chars for display
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
 }

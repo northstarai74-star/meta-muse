@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { ArrowDownRight, ArrowUpRight, DollarSign, Package, Mic, Globe, Users, BadgeCheck, TrendingUp } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Banknote, Package, Mic, Globe, Users, BadgeCheck, TrendingUp, Wallet, PiggyBank, UserCheck } from "lucide-react";
 import { dashboardStats } from "@/lib/stats";
 import { PageHeader } from "@/components/shell";
 import { Avatar, Card, CardHeader, Empty, ScoreBadge, ServiceBadge } from "@/components/ui";
 import { Funnel, LeadsAreaChart, RevenueBars, ServiceDonut } from "@/components/charts";
+import { FollowUps } from "@/components/follow-ups";
+import { formatMoney } from "@/lib/currency";
 import { SERVICE_META } from "@/lib/constants";
 import { cn, money, timeAgo } from "@/lib/utils";
 
@@ -41,12 +43,15 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const rangeDays = [7, 30, 90].includes(Number(range)) ? Number(range) : 30;
   const s = await dashboardStats(rangeDays);
   const k = s.kpis;
+  const f = s.finance;
+  const cur = f.currency;
+  const budgetTone = f.budget.pct >= 100 ? "bg-rose-500" : f.budget.pct >= 80 ? "bg-amber-500" : "bg-emerald-500";
 
   return (
     <>
       <PageHeader
         title="Dashboard"
-        subtitle="Leads, conversions and revenue across all three business lines"
+        subtitle="Leads, revenue and spend across all three business lines"
         actions={
           <div className="inline-flex rounded-xl border bg-surface p-1">
             {RANGES.map((r) => (
@@ -66,12 +71,33 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <Kpi label="Total leads" value={String(k.totalLeads.value)} delta={k.totalLeads.delta} icon={Users} tone="bg-indigo-500/10 text-indigo-600" />
         <Kpi label="Dropshipping leads" value={String(k.dropshipping.value)} icon={Package} tone="bg-amber-500/10 text-amber-600" hint="in selected period" />
         <Kpi label="Converted customers" value={String(k.customers.value)} delta={k.customers.delta} icon={BadgeCheck} tone="bg-emerald-500/10 text-emerald-600" />
-        <Kpi label="Revenue" value={money(k.revenue.value)} delta={k.revenue.delta} icon={DollarSign} tone="bg-sky-500/10 text-sky-600" />
+        <Kpi label="Revenue" value={money(k.revenue.value, false, cur)} delta={k.revenue.delta} icon={Banknote} tone="bg-sky-500/10 text-sky-600" />
       </div>
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         <Kpi label="AI Voice leads" value={String(k.aiVoice.value)} icon={Mic} tone="bg-violet-500/10 text-violet-600" hint="in selected period" />
         <Kpi label="Web Dev leads" value={String(k.webDev.value)} icon={Globe} tone="bg-blue-500/10 text-blue-600" hint="in selected period" />
         <Kpi label="Lead → customer rate" value={`${k.conversion.value}%`} icon={TrendingUp} tone="bg-fuchsia-500/10 text-fuchsia-600" hint="leads marked won" />
+      </div>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Kpi label="Spend" value={money(f.spend, false, cur)} icon={Wallet} tone="bg-rose-500/10 text-rose-600" hint="in selected period" />
+        <Kpi label="Profit" value={money(f.profit, false, cur)} icon={PiggyBank} tone="bg-emerald-500/10 text-emerald-600" hint="revenue minus spend" />
+        <Kpi label="Cost per client" value={f.costPerClient === null ? "—" : money(f.costPerClient, false, cur)} icon={UserCheck} tone="bg-orange-500/10 text-orange-600" hint="spend ÷ converted customers" />
+        <Card className="animate-in p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-muted">Budget used this month</span>
+            <Link href="/expenses" className="text-xs font-medium text-accent hover:underline">Costs</Link>
+          </div>
+          <p className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">{f.budget.pct}%</p>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-valuenow={Math.min(f.budget.pct, 100)} aria-valuemin={0} aria-valuemax={100} aria-label="Monthly budget used">
+            <div className={cn("h-full rounded-full", budgetTone)} style={{ width: `${Math.min(f.budget.pct, 100)}%` }} />
+          </div>
+          <p className="mt-1.5 text-xs text-muted">{formatMoney(f.budget.spentInr, "INR")} of {formatMoney(f.budget.capInr, "INR")}</p>
+        </Card>
+      </div>
+
+      <div className="mt-4">
+        <FollowUps tasks={s.tasks} />
       </div>
 
       <div className="mt-6 grid gap-4 xl:grid-cols-3">
@@ -104,7 +130,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <Card>
           <CardHeader title="Revenue by service" />
           <div className="px-3 pb-4">
-            <RevenueBars data={s.byService} />
+            <RevenueBars data={s.byService} currency={cur} />
           </div>
         </Card>
         <Card>

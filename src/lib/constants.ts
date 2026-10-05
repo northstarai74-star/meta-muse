@@ -39,12 +39,13 @@ export const SERVICE_META: Record<
   },
 };
 
-export const STAGES = ["NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "WON", "LOST"] as const;
+export const STAGES = ["NEW", "CONTACTED", "QUALIFIED", "DEMO_BOOKED", "PROPOSAL", "WON", "LOST"] as const;
 
 export const STAGE_META: Record<string, { label: string; dot: string }> = {
   NEW: { label: "New", dot: "bg-sky-500" },
   CONTACTED: { label: "Contacted", dot: "bg-indigo-500" },
   QUALIFIED: { label: "Qualified", dot: "bg-violet-500" },
+  DEMO_BOOKED: { label: "Demo booked", dot: "bg-fuchsia-500" },
   PROPOSAL: { label: "Proposal", dot: "bg-amber-500" },
   WON: { label: "Won", dot: "bg-emerald-500" },
   LOST: { label: "Lost", dot: "bg-rose-500" },
@@ -55,7 +56,26 @@ export const SOURCE_META: Record<string, string> = {
   META_COMMENT: "Instagram comment",
   META_LEAD_AD: "Meta lead ad",
   MANUAL: "Manual",
+  COLD_EMAIL: "Cold email",
+  IMPORT: "Imported list",
+  API: "API / automation",
 };
 
 export const PROVIDERS = ["META", "CLAUDE", "HIGGSFIELD"] as const;
 export type Provider = (typeof PROVIDERS)[number];
+
+export const LAWFUL_BASIS: Record<string, string> = {
+  B2B_CORPORATE: "B2B: limited company / LLP (PECR corporate subscriber)",
+  CONSENT: "Consent given",
+  OTHER: "Other (note it on the contact)",
+};
+
+export const EXPENSE_CATEGORIES: Record<string, string> = {
+  ADS: "Ads",
+  TOOLS: "Tools & hosting",
+  DOMAINS_EMAIL: "Domains & inboxes",
+  AI_API: "AI / Claude API",
+  VOICE: "Voice agent & numbers",
+  LEAD_DATA: "Lead data",
+  OTHER: "Other",
+};

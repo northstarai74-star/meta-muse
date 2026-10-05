@@ -15,6 +15,7 @@ import {
   YAxis,
 } from "recharts";
 import { SERVICE_META, STAGE_META } from "@/lib/constants";
+import { formatMoney, type Currency } from "@/lib/currency";
 
 const tick = { fontSize: 11, fill: "var(--muted)" };
 const tooltipStyle = {
@@ -73,14 +74,14 @@ export function ServiceDonut({ data }: { data: { service: string; leads: number 
   );
 }
 
-export function RevenueBars({ data }: { data: { service: string; revenue: number }[] }) {
+export function RevenueBars({ data, currency }: { data: { service: string; revenue: number }[]; currency: Currency }) {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <BarChart data={data.map((d) => ({ ...d, name: SERVICE_META[d.service].short }))} margin={{ left: -10, right: 8, top: 8 }}>
         <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
         <XAxis dataKey="name" tick={tick} tickLine={false} axisLine={false} />
-        <YAxis tick={tick} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v >= 1000 ? v / 1000 + "k" : v}`} />
-        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--surface-2)" }} formatter={(v) => [`$${Number(v).toLocaleString()}`, "Revenue"]} />
+        <YAxis tick={tick} tickLine={false} axisLine={false} tickFormatter={(v) => formatMoney(Number(v), currency, true)} />
+        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--surface-2)" }} formatter={(v) => [formatMoney(Number(v), currency), "Revenue"]} />
         <Bar dataKey="revenue" radius={[8, 8, 0, 0]} maxBarSize={56}>
           {data.map((d) => (
             <Cell key={d.service} fill={SERVICE_META[d.service].color} />

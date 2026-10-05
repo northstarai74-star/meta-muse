@@ -18,6 +18,7 @@ export default async function ContactsPage() {
           const owner = c.leads.find((l) => l.assignedUser)?.assignedUser ?? null;
           return {
             id: c.id,
+            doNotContact: c.doNotContact,
             name: c.name,
             email: c.email,
             phone: c.phone,

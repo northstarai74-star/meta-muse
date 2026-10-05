@@ -1,17 +1,14 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { formatMoney, REVENUE_CURRENCY, type Currency } from "./currency";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function money(n: number, compact = false) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-    notation: compact && n >= 10000 ? "compact" : "standard",
-  }).format(n);
+/** Formats an amount; lead and deal values are in the revenue currency (GBP) unless another is given. */
+export function money(n: number, compact = false, currency: Currency = REVENUE_CURRENCY) {
+  return formatMoney(n, currency, compact);
 }
 
 export function initials(name: string) {

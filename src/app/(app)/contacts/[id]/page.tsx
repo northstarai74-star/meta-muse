@@ -27,7 +27,7 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
       <div className="mb-6 flex items-center gap-4">
         <Avatar name={c.name} color="#64748b" size={56} />
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{c.name}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{c.name}{c.doNotContact && <span className="ml-3 rounded-md bg-rose-500/10 px-2 py-1 align-middle text-xs font-semibold text-rose-600">Do not contact</span>}</h1>
           <p className="text-sm text-muted">{c.company ?? "No company"} · {SOURCE_META[c.source]} · added {timeAgo(c.createdAt)}</p>
         </div>
         <div className="ml-auto text-right">
@@ -62,7 +62,7 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
         <Card>
           <CardHeader title="Details" />
           <div className="px-5 pb-5">
-            <ContactEditor contact={{ id: c.id, name: c.name, email: c.email, phone: c.phone, instagramHandle: c.instagramHandle, company: c.company, notes: c.notes }} />
+            <ContactEditor contact={{ id: c.id, name: c.name, email: c.email, phone: c.phone, instagramHandle: c.instagramHandle, company: c.company, notes: c.notes, website: c.website, industry: c.industry, country: c.country, doNotContact: c.doNotContact, lawfulBasis: c.lawfulBasis }} />
           </div>
         </Card>
       </div>

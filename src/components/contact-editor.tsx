@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ContactForm } from "./contacts-view";
 
-export function ContactEditor({ contact }: { contact: { id: string; name: string; email: string | null; phone: string | null; instagramHandle: string | null; company: string | null; notes: string | null } }) {
+export function ContactEditor({ contact }: { contact: { id: string; name: string; email: string | null; phone: string | null; instagramHandle: string | null; company: string | null; notes: string | null; website: string | null; industry: string | null; country: string | null; doNotContact: boolean; lawfulBasis: string | null } }) {
   const router = useRouter();
   const [saved, setSaved] = React.useState(false);
   return (

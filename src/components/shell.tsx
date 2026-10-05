@@ -10,6 +10,8 @@ import {
   MessageSquareText,
   Contact2,
   UsersRound,
+  Upload,
+  Wallet,
   PlugZap,
   Settings,
   Search,
@@ -34,6 +36,8 @@ const NAV = [
   ]},
   { group: "CRM", items: [
     { href: "/contacts", label: "Contacts", icon: Contact2 },
+    { href: "/import", label: "Import prospects", icon: Upload },
+    { href: "/expenses", label: "Costs", icon: Wallet },
     { href: "/team", label: "Team", icon: UsersRound },
   ]},
   { group: "System", items: [

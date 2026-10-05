@@ -4,26 +4,30 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AtSign, Mail, Phone, Plus, Search } from "lucide-react";
-import { Avatar, Button, Card, Empty, Input, Label, Modal, ServiceBadge, Textarea } from "./ui";
-import { SOURCE_META } from "@/lib/constants";
+import { Avatar, Button, Card, Empty, Input, Label, Modal, Select, ServiceBadge, Textarea } from "./ui";
+import { LAWFUL_BASIS, SOURCE_META } from "@/lib/constants";
 import { money } from "@/lib/utils";
 
 type Row = {
+  doNotContact: boolean;
   id: string; name: string; email: string | null; phone: string | null; instagramHandle: string | null; company: string | null; source: string;
   leadCount: number; services: string[]; lifetimeValue: number; owner: { name: string; avatarColor: string } | null;
 };
 
-export function ContactForm({ initial, onDone, onCancel, id }: { initial?: Partial<Record<string, string | null>>; id?: string; onDone: () => void; onCancel: () => void }) {
+export function ContactForm({ initial, onDone, onCancel, id }: { initial?: Partial<Record<string, string | boolean | null>>; id?: string; onDone: () => void; onCancel: () => void }) {
   const [f, setF] = React.useState({
-    name: initial?.name ?? "", email: initial?.email ?? "", phone: initial?.phone ?? "",
-    instagramHandle: initial?.instagramHandle ?? "", company: initial?.company ?? "", notes: initial?.notes ?? "",
+    name: (initial?.name as string) ?? "", email: (initial?.email as string) ?? "", phone: (initial?.phone as string) ?? "",
+    instagramHandle: (initial?.instagramHandle as string) ?? "", company: (initial?.company as string) ?? "", notes: (initial?.notes as string) ?? "",
+    website: (initial?.website as string) ?? "", industry: (initial?.industry as string) ?? "", country: (initial?.country as string) ?? "",
+    lawfulBasis: (initial?.lawfulBasis as string) ?? "",
   });
+  const [dnc, setDnc] = React.useState(Boolean(initial?.doNotContact));
   const [err, setErr] = React.useState("");
-  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const res = await fetch(id ? `/api/contacts/${id}` : "/api/contacts", { method: id ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(f) });
+    const res = await fetch(id ? `/api/contacts/${id}` : "/api/contacts", { method: id ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...f, doNotContact: dnc }) });
     if (res.ok) onDone();
     else setErr((await res.json().catch(() => ({}))).error ?? "Could not save");
   }
@@ -35,7 +39,21 @@ export function ContactForm({ initial, onDone, onCancel, id }: { initial?: Parti
         <div><Label>Phone</Label><Input value={f.phone} onChange={set("phone")} /></div>
         <div><Label>Instagram</Label><Input value={f.instagramHandle} onChange={set("instagramHandle")} placeholder="@handle" /></div>
         <div><Label>Company</Label><Input value={f.company} onChange={set("company")} /></div>
+        <div><Label>Website</Label><Input value={f.website} onChange={set("website")} placeholder="example.co.uk" /></div>
+        <div><Label>Industry</Label><Input value={f.industry} onChange={set("industry")} placeholder="e.g. dental clinic" /></div>
+        <div><Label>Country</Label><Input value={f.country} onChange={set("country")} placeholder="e.g. UK" /></div>
+        <div>
+          <Label>Lawful basis (cold outreach)</Label>
+          <Select value={f.lawfulBasis} onChange={set("lawfulBasis")}>
+            <option value="">Not recorded</option>
+            {Object.entries(LAWFUL_BASIS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </Select>
+        </div>
       </div>
+      <label className="flex items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-500/5 px-3 py-2 text-sm">
+        <input type="checkbox" checked={dnc} onChange={(e) => setDnc(e.target.checked)} />
+        <span><span className="font-medium">Do not contact</span> <span className="text-muted">— opted out; imports and API leads will skip this person</span></span>
+      </label>
       <div><Label>Notes</Label><Textarea value={f.notes} onChange={set("notes")} /></div>
       {err && <p className="text-sm text-rose-600">{err}</p>}
       <div className="flex justify-end gap-2">
@@ -85,7 +103,7 @@ export function ContactsView({ contacts }: { contacts: Row[] }) {
                       <Avatar name={c.name} color="#64748b" size={34} />
                       <span>
                         <span className="block font-medium hover:text-accent">{c.name}</span>
-                        <span className="block text-xs text-muted">{c.company ?? "—"}</span>
+                        <span className="block text-xs text-muted">{c.company ?? "—"}{c.doNotContact && <span className="ml-1.5 rounded bg-rose-500/10 px-1.5 py-0.5 font-semibold text-rose-600">Do not contact</span>}</span>
                       </span>
                     </Link>
                   </td>

@@ -22,6 +22,13 @@ export type LeadRow = {
   contact: { id: string; name: string; instagramHandle: string | null; email: string | null; phone: string | null; company: string | null };
 };
 
+/** Today (plus `days`) as YYYY-MM-DD in the browser's timezone. */
+function localDate(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toLocaleDateString("en-CA");
+}
+
 async function call(url: string, method: string, body?: unknown) {
   const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
   const data = await res.json().catch(() => ({}));
@@ -238,7 +245,8 @@ export function LeadsView({ leads, users, initialQuery, initialOpen, initialServ
 
 type Detail = {
   id: string; title: string; service: string; stage: string; score: number; aiSummary: string | null; assignedAgent: string; assignedUserId: string | null; estimatedValue: number; source: string; createdAt: string;
-  contact: { name: string; email: string | null; phone: string | null; instagramHandle: string | null; company: string | null };
+  contact: { name: string; email: string | null; phone: string | null; instagramHandle: string | null; company: string | null; website: string | null; industry: string | null; country: string | null; doNotContact: boolean };
+  tasks: { id: string; title: string; dueAt: string; done: boolean }[];
   activities: { id: string; type: string; text: string; createdAt: string; user: { name: string } | null }[];
   deals: { id: string; amount: number }[];
 };
@@ -247,6 +255,8 @@ function LeadDrawer({ id, users, onClose, onConvert, onChanged }: { id: string |
   const [d, setD] = React.useState<Detail | null>(null);
   const [note, setNote] = React.useState("");
   const [err, setErr] = React.useState("");
+  const [taskTitle, setTaskTitle] = React.useState("");
+  const [taskDate, setTaskDate] = React.useState(() => localDate(1));
 
   const load = React.useCallback(async () => {
     if (!id) return;
@@ -268,6 +278,22 @@ function LeadDrawer({ id, users, onClose, onConvert, onChanged }: { id: string |
     await load();
     onChanged();
   }
+  async function taskAction(fn: () => Promise<unknown>) {
+    try {
+      await fn();
+      await load();
+      onChanged();
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  }
+  const addTask = () => {
+    if (!taskTitle.trim()) return;
+    taskAction(async () => {
+      await call(`/api/leads/${id}/tasks`, "POST", { title: taskTitle, dueDate: taskDate });
+      setTaskTitle("");
+    });
+  };
   async function addNote() {
     if (!note.trim()) return;
     await call(`/api/leads/${id}/notes`, "POST", { text: note });
@@ -293,7 +319,7 @@ function LeadDrawer({ id, users, onClose, onConvert, onChanged }: { id: string |
           )}
 
           <dl className="grid grid-cols-2 gap-3 text-sm">
-            {[["Email", d.contact.email], ["Phone", d.contact.phone], ["Instagram", d.contact.instagramHandle && "@" + d.contact.instagramHandle], ["Company", d.contact.company]].map(([k, v]) => (
+            {[["Email", d.contact.email], ["Phone", d.contact.phone], ["Instagram", d.contact.instagramHandle && "@" + d.contact.instagramHandle], ["Company", d.contact.company], ["Website", d.contact.website], ["Industry", d.contact.industry], ["Country", d.contact.country]].map(([k, v]) => (
               <div key={k as string}><dt className="text-xs text-muted">{k}</dt><dd className="truncate font-medium">{v || "—"}</dd></div>
             ))}
           </dl>
@@ -330,6 +356,35 @@ function LeadDrawer({ id, users, onClose, onConvert, onChanged }: { id: string |
           {d.stage !== "WON" && d.service !== "UNASSIGNED" && (
             <Button variant="primary" className="w-full" onClick={() => onConvert(d.id)}>Mark as converted customer</Button>
           )}
+
+          {d.contact.doNotContact && <p className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-600">This contact has opted out. Do not contact them.</p>}
+
+          <div>
+            <h3 className="mb-2 text-sm font-semibold">Follow-ups</h3>
+            <div className="mb-3 flex flex-wrap gap-2">
+              <Input className="min-w-40 flex-1" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTask()} placeholder="e.g. Send the demo call link" aria-label="Follow-up" />
+              <Input type="date" className="w-40" value={taskDate} onChange={(e) => setTaskDate(e.target.value)} aria-label="Due date" />
+              <Button onClick={addTask}>Add</Button>
+            </div>
+            {d.tasks.length === 0 ? (
+              <p className="text-xs text-muted">No follow-ups yet. Add one so this lead shows up on the dashboard when it is due.</p>
+            ) : (
+              <ul className="divide-y rounded-xl border">
+                {d.tasks.map((tk) => {
+                  const due = tk.dueAt.slice(0, 10);
+                  const overdue = !tk.done && due < localDate(0);
+                  return (
+                    <li key={tk.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                      <input type="checkbox" checked={tk.done} aria-label={`Mark "${tk.title}" done`} onChange={(e) => taskAction(() => call(`/api/tasks/${tk.id}`, "PATCH", { done: e.target.checked }))} />
+                      <span className={cn("min-w-0 flex-1 truncate", tk.done && "text-muted line-through")}>{tk.title}</span>
+                      <span className={cn("shrink-0 text-xs tabular-nums", overdue ? "font-semibold text-rose-600" : "text-muted")}>{overdue ? "Overdue · " : ""}{due}</span>
+                      <button onClick={() => taskAction(() => call(`/api/tasks/${tk.id}`, "DELETE"))} aria-label={`Delete "${tk.title}"`} className="rounded-lg p-1 text-muted hover:bg-rose-500/10 hover:text-rose-600">×</button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
 
           <div>
             <h3 className="mb-2 text-sm font-semibold">Timeline</h3>
@@ -411,7 +466,7 @@ function ConvertModal({ id, lead, onClose, onDone }: { id: string | null; lead?:
     <Modal open={!!id} onClose={onClose} title="Convert to customer">
       <form onSubmit={submit} className="space-y-3">
         <p className="text-sm text-muted">Record the amount {lead?.contact.name ?? "this customer"} paid. It will count toward revenue and converted customers.</p>
-        <div><Label>Amount paid (USD)</Label><Input type="number" min="1" step="any" value={amount} onChange={(e) => setAmount(e.target.value)} required autoFocus /></div>
+        <div><Label>Amount paid (GBP)</Label><Input type="number" min="1" step="any" value={amount} onChange={(e) => setAmount(e.target.value)} required autoFocus /></div>
         {err && <p className="text-sm text-rose-600">{err}</p>}
         <div className="flex justify-end gap-2">
           <Button type="button" onClick={onClose}>Cancel</Button>

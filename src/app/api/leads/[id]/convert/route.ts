@@ -17,7 +17,7 @@ export const POST = route<Ctx>(async (req, { params }, user) => {
   const [deal] = await db.$transaction([
     db.deal.create({ data: { leadId: id, service: lead.service, amount, status: "PAID" } }),
     db.lead.update({ where: { id }, data: { stage: "WON", estimatedValue: amount } }),
-    db.activity.create({ data: { leadId: id, userId: user.id, type: "CONVERTED", text: `Converted — $${amount.toLocaleString()} paid` } }),
+    db.activity.create({ data: { leadId: id, userId: user.id, type: "CONVERTED", text: `Converted — £${amount.toLocaleString()} paid` } }),
   ]);
   return json(deal, 201);
 });

@@ -2,6 +2,8 @@ import { db } from "./db";
 import { classifyText } from "./ai/classify";
 import { getSettings } from "./settings";
 
+export const DEFAULT_LEAD_VALUE: Record<string, number> = { AI_VOICE: 1500, WEB_DEV: 3000, DROPSHIPPING: 800, UNASSIGNED: 0 };
+
 type ContactInput = { igUserId?: string; name?: string; handle?: string; email?: string; phone?: string };
 
 export async function upsertContact(input: ContactInput, source: string) {
@@ -52,7 +54,7 @@ export async function createLead(opts: { contactId: string; source: string; text
       aiSummary: cls.summary,
       assignedAgent: assign.agent,
       assignedUserId: assign.userId,
-      estimatedValue: { AI_VOICE: 1500, WEB_DEV: 3000, DROPSHIPPING: 800, UNASSIGNED: 0 }[cls.service],
+      estimatedValue: DEFAULT_LEAD_VALUE[cls.service],
     },
   });
   await db.activity.createMany({
@@ -133,4 +135,95 @@ export async function ingestLeadAd(e: {
       handled: true,
     },
   });
+}
+
+export type ProspectInput = {
+  name?: string;
+  email?: string;
+  phone?: string;
+  company?: string;
+  website?: string;
+  industry?: string;
+  country?: string;
+  instagramHandle?: string;
+  message?: string;
+};
+
+export type ProspectOutcome =
+  | { status: "created"; contactId: string; leadId: string }
+  | { status: "duplicate"; contactId: string; leadId: string }
+  | { status: "do_not_contact"; contactId: string };
+
+/**
+ * Adds an outbound prospect or an inbound API lead as contact + lead.
+ * Skips anyone marked do-not-contact, and anyone who already has an open lead for the same service.
+ * With a `service` the lead is created directly (no Claude call, so bulk imports cost nothing);
+ * without one, the message is classified like any other inbound lead.
+ */
+export async function ingestProspect(
+  input: ProspectInput,
+  opts: { source: string; service?: string; stage?: string; lawfulBasis?: string },
+): Promise<ProspectOutcome> {
+  const email = input.email?.trim().toLowerCase() || undefined;
+  const phone = input.phone?.trim() || undefined;
+  let contact = email ? await db.contact.findFirst({ where: { email: { equals: email, mode: "insensitive" } } }) : null;
+  if (!contact && phone) contact = await db.contact.findFirst({ where: { phone } });
+  if (contact?.doNotContact) return { status: "do_not_contact", contactId: contact.id };
+
+  if (contact) {
+    // fill in blanks only; never overwrite what is already known
+    const fill: Record<string, string> = {};
+    for (const k of ["phone", "company", "website", "industry", "country"] as const) {
+      if (!contact[k] && input[k]) fill[k] = input[k]!;
+    }
+    if (!contact.lawfulBasis && opts.lawfulBasis) fill.lawfulBasis = opts.lawfulBasis;
+    if (Object.keys(fill).length) contact = await db.contact.update({ where: { id: contact.id }, data: fill });
+  } else {
+    contact = await db.contact.create({
+      data: {
+        name: input.name?.trim() || input.company?.trim() || email?.split("@")[0] || "Unknown",
+        email,
+        phone: phone ?? null,
+        company: input.company || null,
+        website: input.website || null,
+        industry: input.industry || null,
+        country: input.country || null,
+        instagramHandle: input.instagramHandle?.replace(/^@/, "") || null,
+        lawfulBasis: opts.lawfulBasis || null,
+        source: opts.source,
+      },
+    });
+  }
+
+  const service = opts.service ?? "UNASSIGNED";
+  if (opts.service) {
+    const open = await db.lead.findFirst({ where: { contactId: contact.id, service, stage: { notIn: ["WON", "LOST"] } } });
+    if (open) return { status: "duplicate", contactId: contact.id, leadId: open.id };
+  }
+
+  const text = input.message?.trim() || `Outbound prospect${input.industry ? ` (${input.industry})` : ""}`;
+  if (!opts.service) {
+    const lead = await createLead({ contactId: contact.id, source: opts.source, text });
+    if (opts.stage && opts.stage !== "NEW") await db.lead.update({ where: { id: lead.id }, data: { stage: opts.stage } });
+    return { status: "created", contactId: contact.id, leadId: lead.id };
+  }
+
+  const settings = await getSettings();
+  const assign = settings.autoAssign ? await pickAssignee(service) : { agent: "HUMAN", userId: null as string | null };
+  const lead = await db.lead.create({
+    data: {
+      contactId: contact.id,
+      source: opts.source,
+      title: input.company || contact.company ? `${input.company ?? contact.company} — ${text}` : text,
+      service,
+      stage: opts.stage ?? "NEW",
+      assignedAgent: assign.agent,
+      assignedUserId: assign.userId,
+      estimatedValue: DEFAULT_LEAD_VALUE[service] ?? 0,
+    },
+  });
+  await db.activity.create({
+    data: { leadId: lead.id, type: "CREATED", text: `Added from ${opts.source === "COLD_EMAIL" ? "cold email list" : opts.source === "IMPORT" ? "imported list" : "API"}` },
+  });
+  return { status: "created", contactId: contact.id, leadId: lead.id };
 }

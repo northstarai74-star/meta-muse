@@ -128,7 +128,7 @@ async function main() {
     if (stage === "WON") {
       const paidAt = new Date(Math.min(Date.now() - 3600_000, created.getTime() + (2 + Math.floor(rnd() * 12)) * 86400_000));
       await db.deal.create({ data: { leadId: lead.id, service, amount: value, status: "PAID", paidAt } });
-      await db.activity.create({ data: { leadId: lead.id, type: "CONVERTED", text: `Converted — $${value} paid`, createdAt: paidAt } });
+      await db.activity.create({ data: { leadId: lead.id, type: "CONVERTED", text: `Converted — £${value} paid`, createdAt: paidAt } });
     }
 
     if (source === "META_DM") {
@@ -145,6 +145,18 @@ async function main() {
     } else {
       await db.enquiry.create({ data: { leadId: lead.id, formName: "Free Consultation", name, email: contact.email, phone: contact.phone, message: text, handled: true, createdAt: created } });
     }
+  }
+
+  // A few follow-ups so the dashboard's "Follow-ups" card has something to show
+  const openLeads = await db.lead.findMany({ where: { stage: { notIn: ["WON", "LOST"] } }, orderBy: { createdAt: "desc" }, take: 5 });
+  const followUps: [string, number][] = [["Send the demo call link", -1], ["Check in after the demo", 0], ["Send the proposal", 0], ["Follow up on pricing question", 1], ["Book a discovery call", 2]];
+  const noonUtc = (offsetDays: number) => {
+    const d = new Date();
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + offsetDays, 12));
+  };
+  for (const [i, lead] of openLeads.entries()) {
+    const [title, offset] = followUps[i];
+    await db.task.create({ data: { leadId: lead.id, title, dueAt: noonUtc(offset) } });
   }
 
   // Unhandled comments + enquiries waiting for triage

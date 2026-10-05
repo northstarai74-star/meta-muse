@@ -25,20 +25,42 @@ npm run dev              # http://localhost:3000
 ```
 
 Sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` from your `.env`; use a real email address you own. The demo team members are created as `you+aisha@yourdomain.com` and so on, with the same password. Change that password before using real data.
-`npm run db:seed` **wipes leads/contacts/team** and recreates demo data — don't run it once you have real data.
+`npm run db:seed` **wipes leads, contacts, follow-ups and team** and recreates demo data (costs, tokens and settings are kept) — don't run it once you have real data.
 
 ## What's inside
 
 | Page | What it does |
 |---|---|
-| Dashboard | Total / Dropshipping / AI Voice / Web Dev leads, converted customers, revenue, conversion rate, charts, funnel, activity |
-| Leads | Table + drag-and-drop kanban, filters, bulk assign to a service / AI agent / team member, lead drawer with timeline, convert-to-customer (records revenue) |
+| Dashboard | Leads per service, converted customers, revenue, conversion rate, **spend, profit, cost per client and monthly budget used**, a **follow-ups due** list, charts, funnel, activity |
+| Leads | Table + drag-and-drop kanban (New → Contacted → Qualified → Demo booked → Proposal → Won), filters, bulk assign, lead drawer with **follow-up tasks** and timeline, convert-to-customer (records revenue in £) |
 | Inbox | Instagram DMs: threads, reply, "Suggest" (Claude draft), create lead from thread |
 | Comments & Enquiries | Triage IG comments and lead-ad forms; reply, convert to lead |
-| Contacts | CRM: name, contact info, services, assigned team, lifetime value, edit |
+| Contacts | CRM: contact info, website / industry / country, services, assigned team, lifetime value, **do-not-contact flag and lawful basis** |
+| Import prospects | CSV import of cold-email lists (limited to 5,000 rows) into contacts + leads, with duplicate and do-not-contact skipping |
+| Costs | Log spend in ₹ / £ / $ by category; feeds profit, cost per client and budget used |
 | Team | Members, workload, auto-assignment rules per service (AI agent or person) |
-| Integrations | Meta connection + webhook details, **multi-key vault** for Meta / Claude / Higgsfield |
-| Settings | Demo mode, auto-assign, Claude model |
+| Integrations | Meta connection + webhook details, **multi-key vault** for Meta / Claude / Higgsfield, **API tokens for n8n** |
+| Settings | Demo mode, auto-assign, dashboard currency, exchange rates, monthly budget (default ₹15,000), Claude model |
+
+## Outbound: cold email into the pipeline
+
+1. Build your list elsewhere (a scraper, a lead database) and export a CSV with columns such as name, email, company, website, industry, country.
+2. **Import prospects**: pick the service you are pitching, the starting stage and the lawful basis, then import. Existing contacts, people already in the pipeline for that service, and anyone marked do-not-contact are skipped. Imports never call Claude, so a big list costs nothing in API fees.
+3. Send the emails from a proper cold-email tool on separate sending domains. When someone replies, move the lead (Contacted → Qualified → Demo booked …), add a follow-up task, and mark opt-outs as do-not-contact.
+
+UK note: PECR lets you send B2B marketing email to limited companies and LLPs with clear identification and an opt-out, but sole traders and most partnerships are treated as individuals and usually need prior consent. The app records your lawful basis; it does not check the law for you, and this is not legal advice.
+
+## Connect n8n (or any automation tool)
+
+1. **Integrations > Automation API > New token.** Copy the token when it is shown; it is not stored and cannot be shown again.
+2. In n8n use an HTTP Request node with the header `Authorization: Bearer <token>`.
+3. `POST /api/ingest/lead` adds a lead: `name`, and `email` or `phone`, are required; optional `company`, `website`, `industry`, `country`, `message`, `service` (`AI_VOICE`, `WEB_DEV`, `DROPSHIPPING`), `stage`, `source` (`API`, `COLD_EMAIL`, `IMPORT`). Without `service`, Claude classifies the `message`. The response says `created`, `duplicate` or `do_not_contact`.
+4. `GET /api/ingest/stats?range=30` returns KPIs, funnel, finance and the number of follow-ups due.
+5. Tokens only work on these two endpoints. Revoke one from the same page at any time.
+
+## Money and currency
+
+Client payments are recorded in pounds (£). Costs carry their own currency (₹, £ or $). The dashboard converts everything to the currency chosen in Settings using the exchange rates you enter there (defaults: ₹105 per £1, ₹85 per $1; update them when the rate moves). The monthly budget (default ₹15,000) is compared with this calendar month's costs.
 
 ## Demo mode vs live
 

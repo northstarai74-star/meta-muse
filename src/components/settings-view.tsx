@@ -2,15 +2,21 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardHeader, Input, Label, Toggle } from "./ui";
+import { Card, CardHeader, Input, Label, Select, Toggle } from "./ui";
+import { CURRENCIES, type Currency } from "@/lib/currency";
 
-type S = { demoMode: boolean; autoAssign: boolean; claudeModel: string };
+type S = { demoMode: boolean; autoAssign: boolean; claudeModel: string; displayCurrency: Currency; fxInrPerGbp: number; fxInrPerUsd: number; monthlyBudgetInr: number };
 
 export function SettingsView({ settings, isAdmin }: { settings: S; isAdmin: boolean }) {
   const router = useRouter();
   const [s, setS] = React.useState(settings);
   const [model, setModel] = React.useState(settings.claudeModel);
   const [err, setErr] = React.useState("");
+  const [money, setMoney] = React.useState({ fxInrPerGbp: String(settings.fxInrPerGbp), fxInrPerUsd: String(settings.fxInrPerUsd), monthlyBudgetInr: String(settings.monthlyBudgetInr) });
+  const saveNumber = (k: "fxInrPerGbp" | "fxInrPerUsd" | "monthlyBudgetInr") => {
+    const n = Number(money[k]);
+    if (Number.isFinite(n) && n > 0 && n !== s[k]) save({ [k]: n });
+  };
 
   async function save(patch: Partial<S>) {
     setErr("");
@@ -44,6 +50,30 @@ export function SettingsView({ settings, isAdmin }: { settings: S; isAdmin: bool
             </li>
           ))}
         </ul>
+      </Card>
+      <Card>
+        <CardHeader title="Money" subtitle="Currency for dashboard totals, exchange rates and your monthly spending cap" />
+        <div className="grid gap-4 px-5 pb-5 sm:grid-cols-2">
+          <div>
+            <Label>Show dashboard totals in</Label>
+            <Select id="set-currency" value={s.displayCurrency} disabled={!isAdmin} onChange={(e) => save({ displayCurrency: e.target.value as Currency })}>
+              {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </Select>
+          </div>
+          <div>
+            <Label>Monthly budget (₹)</Label>
+            <Input id="set-budget" type="number" min="1" step="any" disabled={!isAdmin} value={money.monthlyBudgetInr} onChange={(e) => setMoney({ ...money, monthlyBudgetInr: e.target.value })} onBlur={() => saveNumber("monthlyBudgetInr")} />
+          </div>
+          <div>
+            <Label>₹ per £1</Label>
+            <Input id="set-fx-gbp" type="number" min="0.01" step="any" disabled={!isAdmin} value={money.fxInrPerGbp} onChange={(e) => setMoney({ ...money, fxInrPerGbp: e.target.value })} onBlur={() => saveNumber("fxInrPerGbp")} />
+          </div>
+          <div>
+            <Label>₹ per $1</Label>
+            <Input id="set-fx-usd" type="number" min="0.01" step="any" disabled={!isAdmin} value={money.fxInrPerUsd} onChange={(e) => setMoney({ ...money, fxInrPerUsd: e.target.value })} onBlur={() => saveNumber("fxInrPerUsd")} />
+          </div>
+          <p className="text-xs text-muted sm:col-span-2">Client payments are recorded in pounds (£). Exchange rates are manual: update them when the rate moves enough to matter. Changes save when you click away.</p>
+        </div>
       </Card>
       <Card>
         <CardHeader title="Claude" subtitle="Model used to classify leads and draft replies" />

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { json, route } from "@/lib/api";
-import { SERVICE_META, STAGE_META } from "@/lib/constants";
+import { SERVICE_META, STAGE_META, STAGES } from "@/lib/constants";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -14,6 +14,7 @@ export const GET = route<Ctx>(async (_req, { params }) => {
       assignedUser: { select: { id: true, name: true, avatarColor: true } },
       activities: { orderBy: { createdAt: "desc" }, include: { user: { select: { name: true } } } },
       deals: true,
+      tasks: { orderBy: [{ done: "asc" }, { dueAt: "asc" }] },
     },
   });
   if (!lead) return json({ error: "Not found" }, 404);
@@ -21,7 +22,7 @@ export const GET = route<Ctx>(async (_req, { params }) => {
 });
 
 const Patch = z.object({
-  stage: z.enum(["NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "WON", "LOST"]).optional(),
+  stage: z.enum(STAGES).optional(),
   service: z.enum(["AI_VOICE", "WEB_DEV", "DROPSHIPPING", "UNASSIGNED"]).optional(),
   assignedAgent: z.enum(["AI", "HUMAN"]).optional(),
   assignedUserId: z.string().nullable().optional(),
