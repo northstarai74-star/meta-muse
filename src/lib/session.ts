@@ -12,10 +12,11 @@ function secret() {
   return new TextEncoder().encode(s);
 }
 
-export async function createSession(payload: SessionPayload) {
+/** `remember`: stay signed in for 30 days; otherwise the cookie ends with the browser session (token valid 1 day). */
+export async function createSession(payload: SessionPayload, remember = true) {
   const token = await new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
-    .setExpirationTime("7d")
+    .setExpirationTime(remember ? "30d" : "1d")
     .sign(secret());
   const jar = await cookies();
   jar.set(SESSION_COOKIE, token, {
@@ -23,7 +24,7 @@ export async function createSession(payload: SessionPayload) {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production" && process.env.APP_URL?.startsWith("https") === true,
     path: "/",
-    maxAge: 60 * 60 * 24 * 7,
+    ...(remember ? { maxAge: 60 * 60 * 24 * 30 } : {}),
   });
 }
 

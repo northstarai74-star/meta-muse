@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState("");
+  const [remember, setRemember] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
 
   async function submit(e: React.FormEvent) {
@@ -19,13 +20,13 @@ export default function LoginPage() {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.trim(), password }),
+      body: JSON.stringify({ email: email.trim(), password, remember }),
     });
     if (res.ok) {
       router.replace("/");
       router.refresh();
     } else {
-      setError((await res.json().catch(() => ({}))).error ?? "Sign in failed");
+      setError((await res.json().catch(() => ({}))).error ?? `Sign in failed (server returned ${res.status})`);
       setBusy(false);
     }
   }
@@ -71,6 +72,10 @@ export default function LoginPage() {
             <Label>Password</Label>
             <Input type="password" required autoFocus autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
           </div>
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="h-4 w-4 accent-indigo-500" />
+            Remember me for 30 days
+          </label>
           {error && <p role="alert" className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-600">{error}</p>}
           <Button type="submit" variant="primary" className="w-full" disabled={busy}>
             {busy ? "Signing in…" : "Sign in"}
