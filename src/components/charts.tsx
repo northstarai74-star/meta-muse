@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   Area,
   AreaChart,
@@ -91,12 +92,13 @@ export function RevenueBars({ data }: { data: { service: string; revenue: number
   );
 }
 
-export function Funnel({ data }: { data: { stage: string; count: number }[] }) {
+export function Funnel({ data, hrefBase }: { data: { stage: string; count: number }[]; hrefBase?: string }) {
   const max = Math.max(1, ...data.map((d) => d.count));
   return (
     <div className="space-y-3">
-      {data.map((d) => (
-        <div key={d.stage}>
+      {data.map((d) => {
+        const body = (
+        <>
           <div className="mb-1 flex justify-between text-xs">
             <span className="font-medium">{STAGE_META[d.stage].label}</span>
             <span className="tabular-nums text-muted">{d.count}</span>
@@ -104,8 +106,14 @@ export function Funnel({ data }: { data: { stage: string; count: number }[] }) {
           <div className="h-2 overflow-hidden rounded-full bg-surface-2">
             <div className={`h-full rounded-full ${STAGE_META[d.stage].dot}`} style={{ width: `${(d.count / max) * 100}%` }} />
           </div>
-        </div>
-      ))}
+        </>
+        );
+        return hrefBase ? (
+          <Link key={d.stage} href={`${hrefBase}${d.stage}`} className="-mx-2 block rounded-lg px-2 py-1 transition hover:bg-surface-2">{body}</Link>
+        ) : (
+          <div key={d.stage}>{body}</div>
+        );
+      })}
     </div>
   );
 }

@@ -29,12 +29,12 @@ async function call(url: string, method: string, body?: unknown) {
   return data;
 }
 
-export function LeadsView({ leads, users, initialQuery, initialOpen, initialService }: { leads: LeadRow[]; users: User[]; initialQuery: string; initialOpen: string | null; initialService: string }) {
+export function LeadsView({ leads, users, initialQuery, initialOpen, initialService, initialStage }: { leads: LeadRow[]; users: User[]; initialQuery: string; initialOpen: string | null; initialService: string; initialStage: string }) {
   const router = useRouter();
   const [view, setView] = React.useState<"table" | "board">("table");
   const [q, setQ] = React.useState(initialQuery);
   const [service, setService] = React.useState(initialService);
-  const [stage, setStage] = React.useState("ALL");
+  const [stage, setStage] = React.useState(initialStage);
   const [source, setSource] = React.useState("ALL");
   const [assignee, setAssignee] = React.useState("ALL");
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
