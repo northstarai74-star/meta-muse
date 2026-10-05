@@ -8,6 +8,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
   const { c } = await searchParams;
   const convos = await db.conversation.findMany({
     orderBy: { lastMessageAt: "desc" },
+    take: 100,
     include: {
       messages: { orderBy: { sentAt: "asc" } },
       contact: { include: { leads: { orderBy: { createdAt: "desc" }, take: 1, include: { assignedUser: { select: { name: true } } } } } },

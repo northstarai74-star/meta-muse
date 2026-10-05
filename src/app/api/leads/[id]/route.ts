@@ -37,6 +37,10 @@ export const PATCH = route<Ctx>(async (req, { params }, user) => {
     return json({ error: "Use convert to mark a lead as won so the revenue is recorded" }, 400);
   }
 
+  if (patch.assignedUserId && !(await db.user.findUnique({ where: { id: patch.assignedUserId }, select: { id: true } }))) {
+    return json({ error: "Team member not found" }, 400);
+  }
+
   const lead = await db.lead.update({ where: { id }, data: patch });
   // keep revenue attribution in step with the lead's service
   if (patch.service && patch.service !== "UNASSIGNED") await db.deal.updateMany({ where: { leadId: id }, data: { service: patch.service } });

@@ -12,6 +12,9 @@ const Body = z.object({
 export const PUT = route(
   async (req) => {
     const b = Body.parse(await req.json());
+    if (b.userId && !(await db.user.findUnique({ where: { id: b.userId }, select: { id: true } }))) {
+      return json({ error: "Team member not found" }, 400);
+    }
     const rule = await db.assignmentRule.upsert({
       where: { service: b.service },
       create: b,

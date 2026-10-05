@@ -15,6 +15,9 @@ const Body = z.object({
 export const POST = route(async (req, _ctx, user) => {
   const b = Body.parse(await req.json());
   if (!b.service && b.assignedUserId === undefined && !b.assignedAgent) return json({ error: "Nothing to update" }, 400);
+  if (b.assignedUserId && !(await db.user.findUnique({ where: { id: b.assignedUserId }, select: { id: true } }))) {
+    return json({ error: "Team member not found" }, 400);
+  }
   const ids = (await db.lead.findMany({ where: { id: { in: b.ids } }, select: { id: true } })).map((l) => l.id);
   if (ids.length === 0) return json({ error: "No matching leads" }, 404);
   const data: Record<string, unknown> = {};

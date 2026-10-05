@@ -9,6 +9,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const [leads, users] = await Promise.all([
     db.lead.findMany({
       orderBy: { createdAt: "desc" },
+      take: 1000,
       include: { contact: { select: { id: true, name: true, instagramHandle: true, email: true, phone: true, company: true } } },
     }),
     db.user.findMany({ select: { id: true, name: true, avatarColor: true }, orderBy: { name: "asc" } }),
