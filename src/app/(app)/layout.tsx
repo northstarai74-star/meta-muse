@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/login?error=no-access"); // signed-out visitors are already redirected by proxy.ts
 
   const [inbox, comments, settings] = await Promise.all([
     db.conversation.aggregate({ _sum: { unread: true } }),

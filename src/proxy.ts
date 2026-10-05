@@ -1,17 +1,21 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE, readSession } from "@/lib/session";
+import { updateSession } from "@/lib/supabase/proxy";
 
-// Optimistic gate only: redirects signed-out visitors to /login.
+// Optimistic gate only: refreshes the Supabase session and redirects signed-out visitors to /login.
 // Route handlers and server components still verify the user themselves.
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const session = await readSession(req.cookies.get(SESSION_COOKIE)?.value);
+  const { response, signedIn } = await updateSession(req);
 
-  // /login is never redirected away from: a valid JWT can outlive its user row (e.g. after a reseed),
+  // /login is never redirected away from: a Supabase session can outlive its app user row (e.g. after a reseed),
   // and bouncing to "/" would then loop with the layout's redirect back to /login.
-  if (pathname === "/login") return NextResponse.next();
-  if (!session) return NextResponse.redirect(new URL("/login", req.url));
-  return NextResponse.next();
+  if (pathname === "/login") return response;
+  if (!signedIn) {
+    const redirect = NextResponse.redirect(new URL("/login", req.url));
+    for (const c of response.cookies.getAll()) redirect.cookies.set(c);
+    return redirect;
+  }
+  return response;
 }
 
 export const config = {

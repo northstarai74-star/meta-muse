@@ -1,7 +1,7 @@
-import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { json, route } from "@/lib/api";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const Body = z.object({
   name: z.string().min(1),
@@ -18,12 +18,23 @@ export const POST = route(
     const b = Body.parse(await req.json());
     const email = b.email.toLowerCase();
     if (await db.user.findUnique({ where: { email } })) return json({ error: "That email is already in use" }, 409);
-    const count = await db.user.count();
-    const user = await db.user.create({
-      data: { name: b.name, email, title: b.title || null, role: b.role, passwordHash: await bcrypt.hash(b.password, 10), avatarColor: COLORS[count % COLORS.length] },
-      select: { id: true, name: true, email: true },
-    });
-    return json(user, 201);
+
+    // Create the Supabase login first, then the app user linked to it; undo the login if the app user can't be saved.
+    const admin = createAdminClient();
+    const { data: auth, error } = await admin.auth.admin.createUser({ email, password: b.password, email_confirm: true });
+    if (error || !auth.user) return json({ error: error?.message ?? "Could not create the login" }, 400);
+
+    try {
+      const count = await db.user.count();
+      const user = await db.user.create({
+        data: { name: b.name, email, title: b.title || null, role: b.role, authId: auth.user.id, avatarColor: COLORS[count % COLORS.length] },
+        select: { id: true, name: true, email: true },
+      });
+      return json(user, 201);
+    } catch (err) {
+      await admin.auth.admin.deleteUser(auth.user.id);
+      throw err;
+    }
   },
   { admin: true },
 );

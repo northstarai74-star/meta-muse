@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // Enum-like string columns (kept as String for portability).
@@ -20,7 +21,7 @@ model User {
   id           String   @id @default(cuid())
   name         String
   email        String   @unique
-  passwordHash String
+  authId       String?  @unique // Supabase auth user id
   role         String   @default("MEMBER")
   title        String?
   avatarColor  String   @default("#6366f1")

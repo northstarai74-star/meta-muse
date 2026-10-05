@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { ensureAuthUser } from "../src/lib/supabase/admin";
 
 const db = new PrismaClient();
 
@@ -37,8 +37,12 @@ const SOURCES = ["META_DM", "META_DM", "META_DM", "META_COMMENT", "META_LEAD_AD"
 const SERVICE_VALUE: Record<string, number> = { AI_VOICE: 1500, WEB_DEV: 3000, DROPSHIPPING: 800 };
 
 async function main() {
-  const email = process.env.ADMIN_EMAIL ?? "admin@northstarai.local";
-  const password = process.env.ADMIN_PASSWORD ?? "ChangeMe123!";
+  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const password = process.env.ADMIN_PASSWORD;
+  if (!email || !password) throw new Error("Set ADMIN_EMAIL (a real address you own) and ADMIN_PASSWORD (min 8 chars) before seeding");
+  // Demo team logins use plus-addressing so they stay valid addresses that deliver to the admin's inbox.
+  const [local, domain] = email.split("@");
+  const teamEmail = (name: string) => `${local}+${name}@${domain}`;
 
   // wipe demo data (keeps API keys + Meta connection + settings)
   await db.activity.deleteMany();
@@ -52,15 +56,15 @@ async function main() {
   await db.assignmentRule.deleteMany();
   await db.user.deleteMany();
 
-  const hash = await bcrypt.hash(password, 10);
-  const admin = await db.user.create({ data: { name: "NorthStar", email, passwordHash: hash, role: "ADMIN", title: "Founder", avatarColor: "#6366f1" } });
+  // Logins live in Supabase Auth; each app user row links to its auth user by id.
+  const admin = await db.user.create({ data: { name: "NorthStar", email, authId: await ensureAuthUser(email, password), role: "ADMIN", title: "Founder", avatarColor: "#6366f1" } });
   const team = await Promise.all(
     [
-      ["Aisha Rahman", "aisha@northstarai.local", "Sales Lead", "#ec4899"],
-      ["Daniel Cruz", "daniel@northstarai.local", "Web Developer", "#3b82f6"],
-      ["Meera Shah", "meera@northstarai.local", "Dropshipping Manager", "#f59e0b"],
-    ].map(([name, em, title, color]) =>
-      db.user.create({ data: { name, email: em, passwordHash: hash, title, avatarColor: color } }),
+      ["Aisha Rahman", teamEmail("aisha"), "Sales Lead", "#ec4899"],
+      ["Daniel Cruz", teamEmail("daniel"), "Web Developer", "#3b82f6"],
+      ["Meera Shah", teamEmail("meera"), "Dropshipping Manager", "#f59e0b"],
+    ].map(async ([name, em, title, color]) =>
+      db.user.create({ data: { name, email: em, authId: await ensureAuthUser(em, password), title, avatarColor: color } }),
     ),
   );
   const [aisha, daniel, meera] = team;
@@ -164,7 +168,7 @@ async function main() {
   await db.metaConnection.upsert({ where: { id: "singleton" }, create: { id: "singleton", verifyToken: "bos_verify_" + Math.random().toString(36).slice(2, 10) }, update: {} });
   await db.setting.upsert({ where: { key: "demoMode" }, create: { key: "demoMode", value: "true" }, update: {} });
 
-  console.log(`Seeded. Admin login: ${admin.email} / ${password}`);
+  console.log(`Seeded. Admin login: ${admin.email}`);
 }
 
 main().finally(() => db.$disconnect());
