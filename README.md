@@ -3,13 +3,15 @@
 A personal CRM / operating system for three business lines: **AI Voice Receptionist**, **Web Development** and **Dropshipping**.
 It captures Instagram DMs, comments and Meta Lead Ads, classifies each lead with Claude, assigns it to an AI agent or team member, and tracks leads → converted customers → revenue.
 
-Stack: Next.js 16 (App Router) · TypeScript · Tailwind v4 · Prisma 6 + SQLite · Recharts.
+Stack: Next.js 16 (App Router) · TypeScript · Tailwind v4 · Prisma 6 + PostgreSQL · Recharts.
 
 ## Run it
 
 ```bash
+cp .env.example .env     # set DATABASE_URL (Postgres), SESSION_SECRET, ENCRYPTION_KEY, ADMIN_PASSWORD
 npm install
-npm run db:seed     # creates demo data + the admin user (see .env)
+npx prisma migrate deploy
+npm run db:seed          # optional: demo data + the admin user (see .env)
 npm run dev         # http://localhost:3000
 ```
 
@@ -28,6 +30,15 @@ Login: just `ADMIN_PASSWORD` from `.env` (defaults in `.env.example`) — the em
 | Team | Members, workload, auto-assignment rules per service (AI agent or person) |
 | Integrations | Meta connection + webhook details, **multi-key vault** for Meta / Claude / Higgsfield |
 | Settings | Demo mode, auto-assign, Claude model |
+
+## Deploy (Vercel + Supabase/Postgres)
+
+1. Set these environment variables in Vercel (Production and Preview): `DATABASE_URL`, `SESSION_SECRET`, `ENCRYPTION_KEY` (64 hex chars), `ADMIN_PASSWORD`, `ADMIN_EMAIL`, `APP_URL`.
+   On Supabase use the **Session pooler** connection string (port 5432, IPv4-compatible) as `DATABASE_URL`.
+2. Deploy. The `vercel-build` script runs `prisma migrate deploy` before `next build`, so the tables are created automatically.
+3. Open the site and sign in with `ADMIN_PASSWORD` (email optional). On an empty database the first sign-in creates the admin, so the seed script isn't needed.
+
+If sign-in shows an error, it now says what's wrong (missing `SESSION_SECRET`, database not migrated, …).
 
 ## Demo mode vs live
 
@@ -70,4 +81,4 @@ src/app/(app)/*           pages          src/components/*   UI
 ## Notes
 
 - Built for personal/local use. Before exposing it publicly: set strong secrets and serve over HTTPS. Login is rate-limited (10 failed attempts / 15 min per IP, in-memory — use a shared store if you run multiple instances).
-- SQLite file lives at `prisma/dev.db`; the schema is portable to Postgres by changing the datasource provider.
+- Data lives in PostgreSQL (`DATABASE_URL`). CI applies the migrations to a real Postgres on every push.
