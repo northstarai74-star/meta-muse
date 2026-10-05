@@ -71,7 +71,7 @@ export function Shell({ user, counts, demoMode, children }: { user: U; counts: C
           <Sparkles size={18} />
         </div>
         <div className="leading-tight">
-          <p className="text-sm font-semibold">Vanita OS</p>
+          <p className="text-sm font-semibold">NorthStar AI CFO</p>
           <p className="text-[11px] text-muted">Business operating system</p>
         </div>
       </div>

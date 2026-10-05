@@ -1,4 +1,6 @@
-# Vanita Business OS
+# NorthStar AI CFO
+
+(Rebranded from "Vanita Business OS"; features are unchanged.)
 
 A personal CRM / operating system for three business lines: **AI Voice Receptionist**, **Web Development** and **Dropshipping**.
 It captures Instagram DMs, comments and Meta Lead Ads, classifies each lead with Claude, assigns it to an AI agent or team member, and tracks leads → converted customers → revenue.

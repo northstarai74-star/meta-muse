@@ -6,7 +6,7 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Vanita Business OS",
+  title: "NorthStar AI CFO",
   description: "Leads, CRM and revenue for AI voice, web development and dropshipping",
 };
 

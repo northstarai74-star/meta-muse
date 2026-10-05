@@ -37,7 +37,7 @@ export default function LoginPage() {
         <div className="absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-black/10 blur-3xl" />
         <div className="relative flex items-center gap-2.5">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur"><Sparkles size={20} /></div>
-          <span className="text-lg font-semibold">Vanita OS</span>
+          <span className="text-lg font-semibold">NorthStar AI CFO</span>
         </div>
         <div className="relative max-w-md">
           <h2 className="text-4xl font-semibold leading-tight tracking-tight">Every lead. Every channel. One place.</h2>

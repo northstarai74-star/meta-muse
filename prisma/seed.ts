@@ -37,7 +37,7 @@ const SOURCES = ["META_DM", "META_DM", "META_DM", "META_COMMENT", "META_LEAD_AD"
 const SERVICE_VALUE: Record<string, number> = { AI_VOICE: 1500, WEB_DEV: 3000, DROPSHIPPING: 800 };
 
 async function main() {
-  const email = process.env.ADMIN_EMAIL ?? "admin@vanita.local";
+  const email = process.env.ADMIN_EMAIL ?? "admin@northstarai.local";
   const password = process.env.ADMIN_PASSWORD ?? "ChangeMe123!";
 
   // wipe demo data (keeps API keys + Meta connection + settings)
@@ -53,12 +53,12 @@ async function main() {
   await db.user.deleteMany();
 
   const hash = await bcrypt.hash(password, 10);
-  const admin = await db.user.create({ data: { name: "Vanita", email, passwordHash: hash, role: "ADMIN", title: "Founder", avatarColor: "#6366f1" } });
+  const admin = await db.user.create({ data: { name: "NorthStar", email, passwordHash: hash, role: "ADMIN", title: "Founder", avatarColor: "#6366f1" } });
   const team = await Promise.all(
     [
-      ["Aisha Rahman", "aisha@vanita.local", "Sales Lead", "#ec4899"],
-      ["Daniel Cruz", "daniel@vanita.local", "Web Developer", "#3b82f6"],
-      ["Meera Shah", "meera@vanita.local", "Dropshipping Manager", "#f59e0b"],
+      ["Aisha Rahman", "aisha@northstarai.local", "Sales Lead", "#ec4899"],
+      ["Daniel Cruz", "daniel@northstarai.local", "Web Developer", "#3b82f6"],
+      ["Meera Shah", "meera@northstarai.local", "Dropshipping Manager", "#f59e0b"],
     ].map(([name, em, title, color]) =>
       db.user.create({ data: { name, email: em, passwordHash: hash, title, avatarColor: color } }),
     ),
