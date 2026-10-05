@@ -37,7 +37,7 @@ const SOURCES = ["META_DM", "META_DM", "META_DM", "META_COMMENT", "META_LEAD_AD"
 const SERVICE_VALUE: Record<string, number> = { AI_VOICE: 1500, WEB_DEV: 3000, DROPSHIPPING: 800 };
 
 async function main() {
-  const email = process.env.ADMIN_EMAIL ?? "admin@vanita.local";
+  const email = (process.env.ADMIN_EMAIL ?? "admin@vanita.local").toLowerCase();
   const password = process.env.ADMIN_PASSWORD ?? "ChangeMe123!";
 
   // wipe demo data (keeps API keys + Meta connection + settings)
