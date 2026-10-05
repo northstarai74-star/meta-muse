@@ -2,6 +2,9 @@ import { db } from "./db";
 import { classifyText } from "./ai/classify";
 import { getSettings } from "./settings";
 
+/** True for Prisma's unique-constraint error — a concurrent delivery of the same Meta event already won. */
+const isDuplicate = (err: unknown) => (err as { code?: string })?.code === "P2002";
+
 type ContactInput = { igUserId?: string; name?: string; handle?: string; email?: string; phone?: string };
 
 export async function upsertContact(input: ContactInput, source: string) {
@@ -13,16 +16,25 @@ export async function upsertContact(input: ContactInput, source: string) {
     const byEmail = await db.contact.findFirst({ where: { email: input.email } });
     if (byEmail) return byEmail;
   }
-  return db.contact.create({
-    data: {
-      name: input.name || input.handle || "Instagram user",
-      instagramHandle: input.handle,
-      igUserId: input.igUserId,
-      email: input.email,
-      phone: input.phone,
-      source,
-    },
-  });
+  try {
+    return await db.contact.create({
+      data: {
+        name: input.name || input.handle || "Instagram user",
+        instagramHandle: input.handle,
+        igUserId: input.igUserId,
+        email: input.email,
+        phone: input.phone,
+        source,
+      },
+    });
+  } catch (err) {
+    // Meta can deliver bursts concurrently; if another request created this contact first, reuse it.
+    if (input.igUserId && isDuplicate(err)) {
+      const raced = await db.contact.findUnique({ where: { igUserId: input.igUserId } });
+      if (raced) return raced;
+    }
+    throw err;
+  }
 }
 
 /** Picks who should own a lead: the service's assignment rule, else the least-loaded team member. */
@@ -78,9 +90,14 @@ export async function ingestMessage(m: ContactInput & { text: string; externalId
     (await db.conversation.findFirst({ where: { contactId: contact.id } })) ||
     (await db.conversation.create({ data: { contactId: contact.id, externalId: m.threadId } }));
 
-  await db.message.create({
-    data: { conversationId: convo.id, externalId: m.externalId, direction, text: m.text, sentAt: m.at ?? new Date() },
-  });
+  try {
+    await db.message.create({
+      data: { conversationId: convo.id, externalId: m.externalId, direction, text: m.text, sentAt: m.at ?? new Date() },
+    });
+  } catch (err) {
+    if (isDuplicate(err)) return null;
+    throw err;
+  }
   await db.conversation.update({
     where: { id: convo.id },
     data: { lastMessageAt: m.at ?? new Date(), unread: direction === "IN" ? { increment: 1 } : undefined },
@@ -96,15 +113,20 @@ export async function ingestMessage(m: ContactInput & { text: string; externalId
 export async function ingestComment(c: ContactInput & { text: string; externalId?: string; postRef?: string }) {
   if (c.externalId && (await db.comment.findUnique({ where: { externalId: c.externalId } }))) return null;
   const contact = await upsertContact(c, "META_COMMENT");
-  return db.comment.create({
-    data: {
-      externalId: c.externalId,
-      contactId: contact.id,
-      author: c.handle || c.name || "instagram_user",
-      text: c.text,
-      postRef: c.postRef,
-    },
-  });
+  try {
+    return await db.comment.create({
+      data: {
+        externalId: c.externalId,
+        contactId: contact.id,
+        author: c.handle || c.name || "instagram_user",
+        text: c.text,
+        postRef: c.postRef,
+      },
+    });
+  } catch (err) {
+    if (isDuplicate(err)) return null;
+    throw err;
+  }
 }
 
 export async function ingestLeadAd(e: {
