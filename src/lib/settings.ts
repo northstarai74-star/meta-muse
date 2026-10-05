@@ -9,7 +9,7 @@ export type AppSettings = {
 const DEFAULTS: AppSettings = {
   demoMode: true,
   autoAssign: true,
-  claudeModel: "claude-sonnet-5-5",
+  claudeModel: "anthropic/claude-sonnet-5.5",
 };
 
 export async function getSettings(): Promise<AppSettings> {

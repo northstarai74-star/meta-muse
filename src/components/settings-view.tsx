@@ -23,7 +23,7 @@ export function SettingsView({ settings, isAdmin }: { settings: S; isAdmin: bool
   }
 
   const rows: { key: "demoMode" | "autoAssign"; title: string; desc: string }[] = [
-    { key: "demoMode", title: "Demo mode", desc: "Uses built-in heuristics instead of calling Claude, and never sends messages through Meta. Turn off once Meta and a Claude key are connected." },
+    { key: "demoMode", title: "Demo mode", desc: "Uses built-in heuristics instead of calling the AI model, and never sends messages through Meta. Turn off once Meta and an OpenRouter key are connected." },
     { key: "autoAssign", title: "Auto-assign new leads", desc: "Route every new lead to an AI agent or team member using the rules on the Team page." },
   ];
 
@@ -46,11 +46,11 @@ export function SettingsView({ settings, isAdmin }: { settings: S; isAdmin: bool
         </ul>
       </Card>
       <Card>
-        <CardHeader title="Claude" subtitle="Model used to classify leads and draft replies" />
+        <CardHeader title="AI model" subtitle="OpenRouter model used to classify leads and draft replies" />
         <div className="px-5 pb-5">
-          <Label>Model ID</Label>
+          <Label>OpenRouter model slug</Label>
           <Input value={model} disabled={!isAdmin} onChange={(e) => setModel(e.target.value)} onBlur={() => model !== s.claudeModel && model.trim() && save({ claudeModel: model.trim() })} />
-          <p className="mt-2 text-xs text-muted">Default: claude-sonnet-5-5. Changes save when you click away.</p>
+          <p className="mt-2 text-xs text-muted">Default: anthropic/claude-sonnet-5.5. Changes save when you click away.</p>
         </div>
       </Card>
     </div>

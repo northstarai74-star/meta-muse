@@ -11,7 +11,7 @@ type Meta = { appId: string; pageId: string; igBusinessId: string; verifyToken: 
 
 const PROVIDERS = [
   { id: "META", name: "Meta (Instagram / Facebook)", blurb: "Page access tokens used for DMs, comments and lead ads when no page token is saved above.", color: "bg-blue-500" },
-  { id: "CLAUDE", name: "Claude (Anthropic)", blurb: "Lead qualification, auto-assignment and reply suggestions. Keys rotate round-robin; rate-limited keys are skipped.", color: "bg-orange-500" },
+  { id: "OPENROUTER", name: "OpenRouter", blurb: "Lead qualification, auto-assignment and reply suggestions. Keys rotate round-robin; rate-limited keys are skipped.", color: "bg-orange-500" },
   { id: "HIGGSFIELD", name: "Higgsfield", blurb: "Stored for AI video/image creative generation.", color: "bg-fuchsia-500" },
 ];
 
