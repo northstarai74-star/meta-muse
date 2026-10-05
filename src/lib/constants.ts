@@ -57,5 +57,5 @@ export const SOURCE_META: Record<string, string> = {
   MANUAL: "Manual",
 };
 
-export const PROVIDERS = ["META", "CLAUDE", "HIGGSFIELD"] as const;
+export const PROVIDERS = ["META", "OPENROUTER", "HIGGSFIELD"] as const;
 export type Provider = (typeof PROVIDERS)[number];

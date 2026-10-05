@@ -1,8 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { withKey } from "../keys";
+import { chat, hasOpenRouterKey } from "./openrouter";
 import { getSettings } from "../settings";
-import { db } from "../db";
 
 export const ClassificationSchema = z.object({
   service: z.enum(["AI_VOICE", "WEB_DEV", "DROPSHIPPING", "UNASSIGNED"]),
@@ -18,7 +16,7 @@ const KEYWORDS: Record<"AI_VOICE" | "WEB_DEV" | "DROPSHIPPING", RegExp> = {
   DROPSHIPPING: /(dropship|product|supplier|wholesale|store|sourcing|shipping|aliexpress|winning product|bulk order|price list|moq)/i,
 };
 
-/** Offline fallback used in demo mode or when no Claude key is available. */
+/** Offline fallback used in demo mode or when no OpenRouter key is available. */
 export function heuristicClassify(text: string): Classification {
   let best: Classification["service"] = "UNASSIGNED";
   let hits = 0;
@@ -49,20 +47,14 @@ Use HUMAN when the lead is high value, complex or emotional; AI for simple FAQ-s
 
 export async function classifyText(text: string): Promise<Classification> {
   const settings = await getSettings();
-  const hasKey = (await db.apiKey.count({ where: { provider: "CLAUDE", status: "ACTIVE" } })) > 0;
-  if (settings.demoMode || !hasKey) return heuristicClassify(text);
+  if (settings.demoMode || !(await hasOpenRouterKey())) return heuristicClassify(text);
 
   try {
-    const raw = await withKey("CLAUDE", async (apiKey) => {
-      const client = new Anthropic({ apiKey });
-      const res = await client.messages.create({
-        model: settings.claudeModel,
-        max_tokens: 300,
-        system: SYSTEM,
-        messages: [{ role: "user", content: text.slice(0, 4000) }],
-      });
-      const block = res.content.find((b) => b.type === "text");
-      return block && block.type === "text" ? block.text : "";
+    const raw = await chat({
+      model: settings.claudeModel,
+      system: SYSTEM,
+      messages: [{ role: "user", content: text.slice(0, 4000) }],
+      maxTokens: 300,
     });
     const match = raw.match(/\{[\s\S]*\}/);
     return ClassificationSchema.parse(JSON.parse(match?.[0] ?? "{}"));
@@ -74,9 +66,8 @@ export async function classifyText(text: string): Promise<Classification> {
 
 export async function suggestReply(history: { direction: string; text: string }[]): Promise<string> {
   const settings = await getSettings();
-  const hasKey = (await db.apiKey.count({ where: { provider: "CLAUDE", status: "ACTIVE" } })) > 0;
   const last = [...history].reverse().find((m) => m.direction === "IN")?.text ?? "";
-  if (settings.demoMode || !hasKey) {
+  if (settings.demoMode || !(await hasOpenRouterKey())) {
     const c = heuristicClassify(last);
     const opener = "Hi! Thanks for reaching out 👋";
     const body: Record<string, string> = {
@@ -91,16 +82,12 @@ export async function suggestReply(history: { direction: string; text: string }[
     .slice(-12)
     .map((m) => `${m.direction === "IN" ? "Prospect" : "Us"}: ${m.text}`)
     .join("\n");
-  return withKey("CLAUDE", async (apiKey) => {
-    const client = new Anthropic({ apiKey });
-    const res = await client.messages.create({
-      model: settings.claudeModel,
-      max_tokens: 250,
-      system:
-        "You write short, friendly Instagram DM replies for an agency offering AI voice receptionists, web development and dropshipping. Reply with only the message text (max 3 sentences), ending with a clear next step.",
-      messages: [{ role: "user", content: transcript }],
-    });
-    const block = res.content.find((b) => b.type === "text");
-    return block && block.type === "text" ? block.text.trim() : "";
+  const reply = await chat({
+    model: settings.claudeModel,
+    system:
+      "You write short, friendly Instagram DM replies for an agency offering AI voice receptionists, web development and dropshipping. Reply with only the message text (max 3 sentences), ending with a clear next step.",
+    messages: [{ role: "user", content: transcript }],
+    maxTokens: 250,
   });
+  return reply.trim();
 }

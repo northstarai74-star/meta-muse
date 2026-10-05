@@ -4,7 +4,7 @@ import { json, route } from "@/lib/api";
 import { addKey } from "@/lib/keys";
 
 const Body = z.object({
-  provider: z.enum(["META", "CLAUDE", "HIGGSFIELD"]),
+  provider: z.enum(["META", "OPENROUTER", "HIGGSFIELD"]),
   label: z.string().min(1, "Give the key a label"),
   secret: z.string().min(8, "That key looks too short"),
   priority: z.number().int().min(0).max(99).default(0),

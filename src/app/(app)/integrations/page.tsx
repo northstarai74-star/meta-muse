@@ -21,7 +21,7 @@ export default async function IntegrationsPage() {
 
   return (
     <>
-      <PageHeader title="Integrations" subtitle="Connect Meta, Claude and Higgsfield. Add several keys per provider and the OS rotates between them automatically." />
+      <PageHeader title="Integrations" subtitle="Connect Meta, OpenRouter and Higgsfield. Add several keys per provider and the OS rotates between them automatically." />
       <IntegrationsView
         isAdmin={me?.role === "ADMIN"}
         demoMode={settings.demoMode}

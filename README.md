@@ -1,14 +1,15 @@
 # Vanita Business OS
 
 A personal CRM / operating system for three business lines: **AI Voice Receptionist**, **Web Development** and **Dropshipping**.
-It captures Instagram DMs, comments and Meta Lead Ads, classifies each lead with Claude, assigns it to an AI agent or team member, and tracks leads → converted customers → revenue.
+It captures Instagram DMs, comments and Meta Lead Ads, classifies each lead with an LLM via OpenRouter, assigns it to an AI agent or team member, and tracks leads → converted customers → revenue.
 
-Stack: Next.js 16 (App Router) · TypeScript · Tailwind v4 · Prisma 6 + SQLite · Recharts.
+Stack: Next.js 16 (App Router) · TypeScript · Tailwind v4 · Prisma 6 + Postgres · Recharts.
 
 ## Run it
 
 ```bash
 npm install
+npx prisma migrate deploy   # create tables (needs a Postgres DATABASE_URL in .env)
 npm run db:seed     # creates demo data + the admin user (see .env)
 npm run dev         # http://localhost:3000
 ```
@@ -22,16 +23,25 @@ Login: `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env` (defaults in `.env.example`)
 |---|---|
 | Dashboard | Total / Dropshipping / AI Voice / Web Dev leads, converted customers, revenue, conversion rate, charts, funnel, activity |
 | Leads | Table + drag-and-drop kanban, filters, bulk assign to a service / AI agent / team member, lead drawer with timeline, convert-to-customer (records revenue) |
-| Inbox | Instagram DMs: threads, reply, "Suggest" (Claude draft), create lead from thread |
+| Inbox | Instagram DMs: threads, reply, "Suggest" (AI draft), create lead from thread |
 | Comments & Enquiries | Triage IG comments and lead-ad forms; reply, convert to lead |
 | Contacts | CRM: name, contact info, services, assigned team, lifetime value, edit |
 | Team | Members, workload, auto-assignment rules per service (AI agent or person) |
-| Integrations | Meta connection + webhook details, **multi-key vault** for Meta / Claude / Higgsfield |
-| Settings | Demo mode, auto-assign, Claude model |
+| Integrations | Meta connection + webhook details, **multi-key vault** for Meta / OpenRouter / Higgsfield |
+| Settings | Demo mode, auto-assign, AI model |
+
+## Deploy to Vercel
+
+1. Create a Postgres database (Vercel Storage → Neon, or Supabase) and copy its connection string.
+2. Import the repo in Vercel. In **Settings → Environment Variables** set `DATABASE_URL`, `SESSION_SECRET`, `ENCRYPTION_KEY` (64 hex chars), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `APP_URL` (your Vercel URL).
+3. Deploy. `vercel-build` runs `prisma migrate deploy` before `next build`, so tables are created automatically.
+4. Seed the first admin + demo data once, from your machine: `DATABASE_URL="<prod url>" npm run db:seed` (this wipes leads/contacts/team — run it only on an empty database).
+
+Every push to a branch gets its own preview URL; point previews at a separate database if you don't want them sharing prod data.
 
 ## Demo mode vs live
 
-Demo mode (default) uses built-in keyword classification, never calls Claude and never sends anything through Meta.
+Demo mode (default) uses built-in keyword classification, never calls the AI model and never sends anything through Meta.
 Integrations → "Simulate incoming Meta events" pushes fake DMs/comments/lead ads through the same pipeline the real webhook uses.
 
 To go live:
@@ -42,7 +52,7 @@ To go live:
 4. In Meta's webhook settings use the callback URL and verify token shown in Integrations; subscribe to `messages`, `comments` and `leadgen`.
    Permissions needed: `instagram_manage_messages`, `instagram_manage_comments`, `pages_messaging`, `pages_manage_metadata`, `leads_retrieval`, `pages_show_list`.
    Messaging/lead access requires Meta App Review for anyone other than app roles/testers.
-5. Add at least one Claude key, then turn off **Demo mode** in Settings.
+5. Add at least one OpenRouter key, then turn off **Demo mode** in Settings.
 
 ## API keys
 
@@ -57,7 +67,7 @@ Higgsfield keys are stored but nothing calls Higgsfield yet, and its **Test** bu
 prisma/schema.prisma      data model       prisma/seed.ts   demo data
 src/proxy.ts              login gate       src/lib/session.ts   JWT cookie session
 src/lib/ingest.ts         lead capture + auto-assignment
-src/lib/ai/classify.ts    Claude classification / reply drafts (+ offline fallback)
+src/lib/ai/classify.ts    OpenRouter classification / reply drafts (+ offline fallback)
 src/lib/meta.ts           Graph API client, signature check
 src/app/api/meta/webhook  public Meta webhook
 src/app/(app)/*           pages          src/components/*   UI
@@ -66,4 +76,4 @@ src/app/(app)/*           pages          src/components/*   UI
 ## Notes
 
 - Built for personal/local use. Before exposing it publicly: set strong secrets, serve over HTTPS, and add login rate-limiting.
-- SQLite file lives at `prisma/dev.db`; the schema is portable to Postgres by changing the datasource provider.
+- Data lives in Postgres (`DATABASE_URL`). Locally, any Postgres works; on Vercel use Neon / Supabase / Vercel Postgres.

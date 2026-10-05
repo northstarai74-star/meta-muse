@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
 import { json, route } from "@/lib/api";
@@ -15,9 +14,10 @@ export const POST = route<Ctx>(
 
     try {
       let detail = "";
-      if (key.provider === "CLAUDE") {
-        await new Anthropic({ apiKey: secret }).models.list({ limit: 1 });
-        detail = "Claude API key is valid";
+      if (key.provider === "OPENROUTER") {
+        const res = await fetch("https://openrouter.ai/api/v1/key", { headers: { Authorization: `Bearer ${secret}` } });
+        if (!res.ok) throw new Error(`OpenRouter rejected the key (${res.status})`);
+        detail = "OpenRouter API key is valid";
       } else if (key.provider === "META") {
         const me = await testToken(secret);
         detail = `Meta token valid for “${me.name}”`;
