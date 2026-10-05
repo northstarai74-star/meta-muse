@@ -49,7 +49,7 @@ function providerRow(p: ProviderHealth, demoMode: boolean) {
 }
 
 export function ConnectionStatus({ data }: { data: Connectivity }) {
-  const { meta, providers, demoMode } = data;
+  const { meta, providers, demoMode, agent, jobs } = data;
 
   let webhook: { tone: Tone; status: string; detail: string };
   if (meta.webhookVerified) {
@@ -59,6 +59,18 @@ export function ConnectionStatus({ data }: { data: Connectivity }) {
   } else {
     webhook = { tone: demoMode ? "idle" : "bad", status: "Setup needed", detail: "Add your Meta app credentials in Integrations" };
   }
+
+  let tokenRow: { tone: Tone; status: string; detail?: string } | null = null;
+  if (meta.token) {
+    const daysLeft = meta.token.daysLeft;
+    if (!meta.token.valid) tokenRow = { tone: "bad", status: "Invalid", detail: meta.token.error ?? "Meta rejected the saved token — paste a new one" };
+    else if (daysLeft !== null && daysLeft <= 7) tokenRow = { tone: "warn", status: `Expires in ${Math.max(daysLeft, 0)}d`, detail: "Generate a new long-lived token" };
+    else tokenRow = { tone: "ok", status: "Valid", detail: daysLeft === null ? "Does not expire" : `Expires in ${daysLeft} days` };
+  }
+
+  const agentTone: Tone = !agent.enabled ? "idle" : !jobs.workerAlive ? "bad" : agent.approvals ? "warn" : "ok";
+  const agentStatus = !agent.enabled ? "Paused" : !jobs.workerAlive ? "Worker stopped" : agent.approvals ? `${agent.approvals} to approve` : "Active";
+  const jobsTone: Tone = jobs.failed ? "bad" : jobs.workerAlive ? "ok" : "bad";
 
   return (
     <Card>
@@ -76,7 +88,16 @@ export function ConnectionStatus({ data }: { data: Connectivity }) {
           status={meta.lastSyncAt ? timeAgo(meta.lastSyncAt) : "Never synced"}
           detail={demoMode ? "Disabled in demo mode" : undefined}
         />
+        {tokenRow && <Row name="Meta page token" href="/integrations" {...tokenRow} />}
         {providers.map((p) => providerRow(p, demoMode))}
+        <Row name="AI agent" href="/agent" tone={agentTone} status={agentStatus} detail={agent.enabled ? undefined : "Turn on in AI Agent → Controls"} />
+        <Row
+          name="Background jobs"
+          href="/agent"
+          tone={jobsTone}
+          status={jobs.failed ? `${jobs.failed} failed` : jobs.workerAlive ? "Running" : "Not running"}
+          detail={jobs.workerAlive ? `${jobs.pending} queued` : "No heartbeat from the worker"}
+        />
       </ul>
     </Card>
   );

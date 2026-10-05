@@ -10,14 +10,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const [inbox, comments, settings] = await Promise.all([
+  const [inbox, comments, approvals, settings] = await Promise.all([
     db.conversation.aggregate({ _sum: { unread: true } }),
     db.comment.count({ where: { handled: false } }),
+    db.agentAction.count({ where: { status: "PENDING" } }),
     getSettings(),
   ]);
 
   return (
-    <Shell user={user} counts={{ inbox: inbox._sum.unread ?? 0, comments }} demoMode={settings.demoMode}>
+    <Shell user={user} counts={{ inbox: inbox._sum.unread ?? 0, comments, approvals }} demoMode={settings.demoMode}>
       {children}
     </Shell>
   );

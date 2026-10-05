@@ -2,6 +2,8 @@ import { db } from "./db";
 import { PROVIDERS, type Provider } from "./constants";
 import { getConnection } from "./meta";
 import { getSettings } from "./settings";
+import { queueStats } from "./jobs";
+import { TOKEN_STATUS_KEY, type TokenStatus } from "./meta-events";
 
 export type ProviderHealth = {
   provider: Provider;
@@ -14,14 +16,21 @@ export type ProviderHealth = {
 
 /** Snapshot of everything the dashboard needs to show how well the OS is wired to the outside world. */
 export async function connectivityStatus() {
-  const [conn, settings, keys, lastMessage, lastComment, lastEnquiry] = await Promise.all([
+  const [conn, settings, keys, lastMessage, lastComment, lastEnquiry, queue, approvals, tokenRow] = await Promise.all([
     getConnection(),
     getSettings(),
     db.apiKey.findMany({ select: { provider: true, status: true, lastError: true, lastUsedAt: true } }),
     db.message.findFirst({ where: { direction: "IN" }, orderBy: { sentAt: "desc" }, select: { sentAt: true } }),
     db.comment.findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
     db.enquiry.findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
+    queueStats(),
+    db.agentAction.count({ where: { status: "PENDING" } }),
+    db.setting.findUnique({ where: { key: TOKEN_STATUS_KEY } }),
   ]);
+  let token: TokenStatus | null = null;
+  try {
+    token = tokenRow ? (JSON.parse(tokenRow.value) as TokenStatus) : null;
+  } catch {}
 
   const providers: ProviderHealth[] = PROVIDERS.map((provider) => {
     const mine = keys.filter((k) => k.provider === provider);
@@ -50,7 +59,10 @@ export async function connectivityStatus() {
       hasSecret: !!conn.appSecretEnc,
       lastSyncAt: conn.lastSyncAt?.toISOString() ?? null,
       lastEventAt: lastEvent?.toISOString() ?? null,
+      token: token && { ...token, daysLeft: token.expiresAt ? Math.floor((new Date(token.expiresAt).getTime() - Date.now()) / 86400_000) : null },
     },
+    agent: { enabled: settings.agentEnabled, approvals },
+    jobs: { workerAlive: queue.workerAlive, pending: queue.pending, failed: queue.failed },
     providers,
   };
 }

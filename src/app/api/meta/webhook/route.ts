@@ -1,8 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
-import { fetchLeadgen, fetchProfile, getConnection, verifySignature } from "@/lib/meta";
-import { ingestComment, ingestLeadAd, ingestMessage } from "@/lib/ingest";
+import { getConnection, verifySignature } from "@/lib/meta";
+import { enqueue } from "@/lib/jobs";
+import { kick } from "@/lib/worker";
+import type { MetaEntry } from "@/lib/meta-events";
 
 // Public endpoint (excluded from the login proxy). Protected by Meta's verify token + HMAC signature.
 
@@ -19,20 +21,6 @@ export async function GET(req: Request) {
   return new NextResponse("Forbidden", { status: 403 });
 }
 
-type ChangeValue = {
-  id?: string;
-  comment_id?: string;
-  post_id?: string;
-  text?: string;
-  message?: string;
-  from?: { id?: string; username?: string; name?: string };
-  media?: { id?: string };
-  leadgen_id?: string;
-};
-type Change = { field: string; value: ChangeValue };
-type Messaging = { sender?: { id: string }; recipient?: { id: string }; message?: { mid: string; text?: string; is_echo?: boolean }; timestamp?: number };
-type Entry = { id: string; time?: number; messaging?: Messaging[]; changes?: Change[] };
-
 export async function POST(req: Request) {
   const raw = await req.text();
   const conn = await getConnection();
@@ -42,57 +30,15 @@ export async function POST(req: Request) {
     return new NextResponse("Invalid signature", { status: 403 });
   }
 
-  const payload = JSON.parse(raw) as { object?: string; entry?: Entry[] };
-
-  // Respond fast to Meta (<5s) but process inline; failures are logged, not retried by us.
-  for (const entry of payload.entry ?? []) {
-    try {
-      for (const ev of entry.messaging ?? []) {
-        if (!ev.message?.text || ev.message.is_echo || !ev.sender?.id) continue;
-        let profile: { name?: string; username?: string } = {};
-        try {
-          profile = await fetchProfile(ev.sender.id);
-        } catch {}
-        await ingestMessage({
-          igUserId: ev.sender.id,
-          name: profile.name,
-          handle: profile.username,
-          text: ev.message.text,
-          externalId: ev.message.mid,
-          at: ev.timestamp ? new Date(ev.timestamp) : undefined,
-        });
-      }
-
-      for (const ch of entry.changes ?? []) {
-        if (ch.field === "comments" || ch.field === "feed") {
-          const v = ch.value;
-          const text = v.text ?? v.message;
-          if (!text) continue;
-          await ingestComment({
-            igUserId: v.from?.id,
-            handle: v.from?.username ?? v.from?.name,
-            text,
-            externalId: v.id ?? v.comment_id,
-            postRef: v.media?.id ?? v.post_id,
-          });
-        } else if (ch.field === "leadgen") {
-          if (!ch.value.leadgen_id) continue;
-          const lead = await fetchLeadgen(ch.value.leadgen_id);
-          const f = Object.fromEntries((lead.field_data ?? []).map((x) => [x.name, x.values?.[0]]));
-          await ingestLeadAd({
-            externalId: ch.value.leadgen_id,
-            formName: lead.form_id ? `Form ${lead.form_id}` : undefined,
-            name: f.full_name ?? f.name,
-            email: f.email,
-            phone: f.phone_number ?? f.phone,
-            message: f.message ?? f.what_service_are_you_interested_in,
-            raw: lead,
-          });
-        }
-      }
-    } catch (err) {
-      console.error("[meta webhook] failed to process entry", entry.id, err);
-    }
+  let payload: { object?: string; entry?: MetaEntry[] };
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    return new NextResponse("Bad request", { status: 400 });
   }
+
+  // Persist first, process second: Meta gets its 200 immediately and the job queue retries failures.
+  for (const entry of payload.entry ?? []) await enqueue("META_EVENT", { entry });
+  after(kick);
   return NextResponse.json({ received: true });
 }

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Send, Sparkles, UserPlus } from "lucide-react";
+import { Bot, ChevronLeft, Send, Sparkles, UserPlus } from "lucide-react";
 import { Avatar, Button, Card, Empty, ScoreBadge, ServiceBadge, StageBadge } from "./ui";
 import { cn, timeAgo } from "@/lib/utils";
 
@@ -29,6 +29,7 @@ export function InboxView({ convos, initialId }: { convos: Convo[]; initialId: s
   const [draft, setDraft] = React.useState("");
   const [busy, setBusy] = React.useState("");
   const [err, setErr] = React.useState("");
+  const [note, setNote] = React.useState("");
   const endRef = React.useRef<HTMLDivElement>(null);
   const active = convos.find((c) => c.id === activeId) ?? null;
 
@@ -56,6 +57,14 @@ export function InboxView({ convos, initialId }: { convos: Convo[]; initialId: s
       if (!draft.trim()) return;
       await post(`/api/conversations/${active!.id}/send`, { text: draft });
       setDraft("");
+      router.refresh();
+    });
+  const runAgent = () =>
+    run("agent", async () => {
+      const r = await post("/api/agent/run", { conversationId: active!.id });
+      setErr("");
+      setNote(`${r.summary ?? "Agent ran"} — see AI Agent for details`);
+      setTimeout(() => setNote(""), 6000);
       router.refresh();
     });
   const makeLead = () => run("lead", async () => { await post(`/api/conversations/${active!.id}/lead`); router.refresh(); });
@@ -112,6 +121,7 @@ export function InboxView({ convos, initialId }: { convos: Convo[]; initialId: s
           </div>
           <div className="border-t p-3">
             {err && <p className="mb-2 text-xs text-rose-600">{err}</p>}
+            {note && <p className="mb-2 text-xs text-emerald-600">{note}</p>}
             <div className="flex items-end gap-2">
               <textarea
                 value={draft}
@@ -123,6 +133,7 @@ export function InboxView({ convos, initialId }: { convos: Convo[]; initialId: s
               />
               <div className="flex flex-col gap-1.5">
                 <Button size="sm" onClick={suggest} disabled={busy === "suggest"}><Sparkles size={14} /> {busy === "suggest" ? "Thinking…" : "Suggest"}</Button>
+                <Button size="sm" onClick={runAgent} disabled={busy === "agent"} title="Let the AI agent handle this conversation now"><Bot size={14} /> {busy === "agent" ? "Running…" : "Run agent"}</Button>
                 <Button size="sm" variant="primary" onClick={send} disabled={busy === "send" || !draft.trim()}><Send size={14} /> Send</Button>
               </div>
             </div>

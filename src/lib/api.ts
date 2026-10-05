@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { getCurrentUser } from "./session";
+import { UserError } from "./errors";
+
+export { UserError };
 
 type User = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
 
@@ -21,6 +24,7 @@ export function route<Ctx = unknown>(
       if (err instanceof ZodError) {
         return NextResponse.json({ error: err.issues.map((i) => i.message).join("; ") }, { status: 400 });
       }
+      if (err instanceof UserError) return NextResponse.json({ error: err.message }, { status: err.status });
       const message = err instanceof Error ? err.message : "Server error";
       return NextResponse.json({ error: message }, { status: 500 });
     }

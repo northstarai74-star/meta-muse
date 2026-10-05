@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { classifyText } from "./ai/classify";
 import { getSettings } from "./settings";
+import { scheduleAgent } from "./agent/trigger";
 
 type ContactInput = { igUserId?: string; name?: string; handle?: string; email?: string; phone?: string };
 
@@ -29,9 +30,14 @@ export async function upsertContact(input: ContactInput, source: string) {
 export async function pickAssignee(service: string) {
   const rule = await db.assignmentRule.findUnique({ where: { service } });
   if (rule) return { agent: rule.agent, userId: rule.userId };
+  return pickHuman();
+}
+
+/** The least-loaded team member (used for round-robin assignment and AI escalations). */
+export async function pickHuman() {
   const users = await db.user.findMany({ include: { _count: { select: { leads: { where: { stage: { notIn: ["WON", "LOST"] } } } } } } });
   users.sort((a, b) => a._count.leads - b._count.leads);
-  return { agent: "HUMAN", userId: users[0]?.id ?? null };
+  return { agent: "HUMAN" as const, userId: users[0]?.id ?? null, name: users[0]?.name ?? null };
 }
 
 /** Creates a lead, classifies it with Claude (or heuristics) and auto-assigns it. */
@@ -89,6 +95,8 @@ export async function ingestMessage(m: ContactInput & { text: string; externalId
   if (direction === "IN") {
     const open = await db.lead.findFirst({ where: { contactId: contact.id, stage: { notIn: ["WON", "LOST"] } } });
     if (!open) await createLead({ contactId: contact.id, source: "META_DM", text: m.text });
+    // Backfilled history should not wake the agent; only genuinely recent messages do.
+    if (!m.at || Date.now() - m.at.getTime() < 30 * 60_000) await scheduleAgent({ trigger: "DM", conversationId: convo.id });
   }
   return { contactId: contact.id, conversationId: convo.id };
 }
@@ -96,7 +104,7 @@ export async function ingestMessage(m: ContactInput & { text: string; externalId
 export async function ingestComment(c: ContactInput & { text: string; externalId?: string; postRef?: string }) {
   if (c.externalId && (await db.comment.findUnique({ where: { externalId: c.externalId } }))) return null;
   const contact = await upsertContact(c, "META_COMMENT");
-  return db.comment.create({
+  const comment = await db.comment.create({
     data: {
       externalId: c.externalId,
       contactId: contact.id,
@@ -105,6 +113,8 @@ export async function ingestComment(c: ContactInput & { text: string; externalId
       postRef: c.postRef,
     },
   });
+  await scheduleAgent({ trigger: "COMMENT", commentId: comment.id });
+  return comment;
 }
 
 export async function ingestLeadAd(e: {
@@ -120,6 +130,7 @@ export async function ingestLeadAd(e: {
   const contact = await upsertContact({ name: e.name, email: e.email, phone: e.phone }, "META_LEAD_AD");
   const text = [e.formName, e.message].filter(Boolean).join(" — ") || `Lead ad form from ${e.name ?? "unknown"}`;
   const lead = await createLead({ contactId: contact.id, source: "META_LEAD_AD", text });
+  await scheduleAgent({ trigger: "LEAD", leadId: lead.id });
   return db.enquiry.create({
     data: {
       externalId: e.externalId,

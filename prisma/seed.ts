@@ -41,6 +41,9 @@ async function main() {
   const password = process.env.ADMIN_PASSWORD ?? "ChangeMe123!";
 
   // wipe demo data (keeps API keys + Meta connection + settings)
+  await db.agentAction.deleteMany();
+  await db.agentRun.deleteMany();
+  await db.job.deleteMany();
   await db.activity.deleteMany();
   await db.deal.deleteMany();
   await db.enquiry.deleteMany();

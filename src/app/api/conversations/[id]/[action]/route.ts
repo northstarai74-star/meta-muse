@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { json, route } from "@/lib/api";
-import { getSettings } from "@/lib/settings";
-import { sendInstagramMessage } from "@/lib/meta";
+import { sendDirectMessage } from "@/lib/messaging";
 import { suggestReply } from "@/lib/ai/classify";
 import { createLead } from "@/lib/ingest";
 
@@ -26,13 +25,7 @@ export const POST = route<Ctx>(async (req, { params }) => {
 
     case "send": {
       const { text } = z.object({ text: z.string().min(1).max(1000) }).parse(await req.json());
-      const settings = await getSettings();
-      if (!settings.demoMode) {
-        if (!convo.contact.igUserId) return json({ error: "This contact has no Instagram ID to message" }, 400);
-        await sendInstagramMessage(convo.contact.igUserId, text);
-      }
-      const msg = await db.message.create({ data: { conversationId: id, direction: "OUT", text } });
-      await db.conversation.update({ where: { id }, data: { lastMessageAt: msg.sentAt, unread: 0 } });
+      const msg = await sendDirectMessage(id, text);
       return json(msg, 201);
     }
 

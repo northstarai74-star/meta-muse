@@ -98,3 +98,12 @@ export async function fetchRecentConversations(): Promise<GraphConversation[]> {
 export async function testToken(token: string) {
   return graph("/me?fields=id,name", token) as Promise<{ id: string; name: string }>;
 }
+
+/** Asks Meta whether a token is still valid and when it expires (needs the app id + secret). */
+export async function debugToken(appId: string, appSecret: string, token: string) {
+  const res = await fetch(`${GRAPH}/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(`${appId}|${appSecret}`)}`);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ProviderError(body?.error?.message ?? `Meta API error ${res.status}`, res.status);
+  const d = body.data as { is_valid?: boolean; expires_at?: number; error?: { message?: string } } | undefined;
+  return { valid: !!d?.is_valid, expiresAt: d?.expires_at ? new Date(d.expires_at * 1000) : null, error: d?.error?.message ?? null };
+}

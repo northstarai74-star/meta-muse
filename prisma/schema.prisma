@@ -15,6 +15,8 @@ datasource db {
 // AGENT: AI | HUMAN
 // PROVIDER: META | CLAUDE | HIGGSFIELD
 // KEY STATUS: ACTIVE | DISABLED | RATE_LIMITED
+// JOB STATUS: PENDING | RUNNING | DONE | FAILED
+// AGENT ACTION STATUS: PENDING (awaiting approval) | EXECUTED | REJECTED | FAILED | SKIPPED
 
 model User {
   id           String   @id @default(cuid())
@@ -69,6 +71,7 @@ model Lead {
   activities  Activity[]
   comments    Comment[]
   enquiries   Enquiry[]
+  agentActions AgentAction[]
 
   @@index([service])
   @@index([stage])
@@ -192,4 +195,72 @@ model AssignmentRule {
 model Setting {
   key   String @id
   value String
+}
+
+/// Durable background work (webhook events, agent runs, syncs). Claimed atomically by the worker.
+model Job {
+  id          String    @id @default(cuid())
+  type        String
+  payload     String    @default("{}")
+  status      String    @default("PENDING")
+  dedupeKey   String?
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5)
+  runAt       DateTime  @default(now())
+  lockedAt    DateTime?
+  finishedAt  DateTime?
+  lastError   String?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, runAt])
+  @@index([dedupeKey, status])
+}
+
+/// One execution of the AI agent for a lead / conversation / comment.
+model AgentRun {
+  id             String   @id @default(cuid())
+  trigger        String   // DM | COMMENT | LEAD | STALE | FOLLOWUP | MANUAL
+  leadId         String?
+  conversationId String?
+  commentId      String?
+  status         String   // OK | SKIPPED | ERROR
+  engine         String   @default("CLAUDE") // CLAUDE | OFFLINE
+  model          String?
+  inputTokens    Int      @default(0)
+  outputTokens   Int      @default(0)
+  summary        String?
+  error          String?
+  createdAt      DateTime @default(now())
+
+  actions AgentAction[]
+
+  @@index([createdAt])
+  @@index([leadId])
+}
+
+/// Audit log + approval queue: every action the agent proposed, and what happened to it.
+model AgentAction {
+  id             String    @id @default(cuid())
+  runId          String
+  run            AgentRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  leadId         String?
+  lead           Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  conversationId String?
+  commentId      String?
+  tool           String
+  input          String    // JSON
+  summary        String
+  reasoning      String?
+  confidence     Int
+  status         String
+  autonomy       String    // AUTO | APPROVAL — how the policy routed it
+  note           String?   // why it was queued / skipped / failed
+  decidedById    String?
+  decidedAt      DateTime?
+  executedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([status, createdAt])
+  @@index([leadId])
+  @@index([createdAt])
 }

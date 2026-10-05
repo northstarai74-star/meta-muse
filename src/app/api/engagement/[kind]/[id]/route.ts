@@ -2,8 +2,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { json, route } from "@/lib/api";
 import { createLead, upsertContact } from "@/lib/ingest";
-import { getSettings } from "@/lib/settings";
-import { replyToComment } from "@/lib/meta";
+import { replyToCommentById } from "@/lib/messaging";
 
 type Ctx = { params: Promise<{ kind: string; id: string }> };
 
@@ -19,12 +18,7 @@ export const POST = route<Ctx>(async (req, { params }) => {
 
     if (action === "reply") {
       if (!text?.trim()) return json({ error: "Write a reply first" }, 400);
-      const settings = await getSettings();
-      if (!settings.demoMode) {
-        if (!c.externalId) return json({ error: "This comment has no Instagram ID" }, 400);
-        await replyToComment(c.externalId, text);
-      }
-      await db.comment.update({ where: { id }, data: { handled: true } });
+      await replyToCommentById(id, text);
       return json({ ok: true });
     }
     if (action === "convert") {

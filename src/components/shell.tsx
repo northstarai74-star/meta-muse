@@ -18,11 +18,12 @@ import {
   LogOut,
   Menu,
   Sparkles,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "./ui";
 
-type Counts = { inbox: number; comments: number };
+type Counts = { inbox: number; comments: number; approvals: number };
 type U = { name: string; email: string; role: string; avatarColor: string };
 
 const NAV = [
@@ -31,6 +32,7 @@ const NAV = [
     { href: "/leads", label: "Leads", icon: Users },
     { href: "/inbox", label: "Inbox", icon: InboxIcon, badge: "inbox" as const },
     { href: "/engagement", label: "Comments & Enquiries", icon: MessageSquareText, badge: "comments" as const },
+    { href: "/agent", label: "AI Agent", icon: Bot, badge: "approvals" as const },
   ]},
   { group: "CRM", items: [
     { href: "/contacts", label: "Contacts", icon: Contact2 },

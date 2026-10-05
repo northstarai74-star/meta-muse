@@ -26,6 +26,7 @@ Login: `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env` (defaults in `.env.example`)
 | Comments & Enquiries | Triage IG comments and lead-ad forms; reply, convert to lead |
 | Contacts | CRM: name, contact info, services, assigned team, lifetime value, edit |
 | Team | Members, workload, auto-assignment rules per service (AI agent or person) |
+| AI Agent | Approval queue, audit log, autonomy controls and background-job health |
 | Integrations | Meta connection + webhook details, **multi-key vault** for Meta / Claude / Higgsfield |
 | Settings | Demo mode, auto-assign, Claude model |
 
@@ -51,6 +52,24 @@ You can add several keys per provider. `withKey()` in `src/lib/keys.ts` uses the
 
 Higgsfield keys are stored but nothing calls Higgsfield yet, and its **Test** button does not verify the key.
 
+## AI agent & background jobs
+
+The agent works leads assigned to **AI agent** (set per service on the Team page). It is **off by default** — switch it on at *AI Agent → Controls*.
+
+```
+Meta webhook / sync / simulate ──► ingest ──► job queue ──► agent run ──► policy gate ──► execute | approval queue
+```
+
+- **Job queue** (`src/lib/jobs.ts`): durable DB-backed jobs with atomic claiming, retries with backoff, stuck-job recovery and self-rescheduling recurring jobs (stale-lead scan, DM sync, Meta token check, cleanup). The webhook only verifies the signature and enqueues, so Meta always gets a fast 200 and failed events are retried. Failed jobs can be retried from *AI Agent → System*.
+- **Worker**: starts with the server (`src/instrumentation.ts`). On serverless hosts set `WORKER_DISABLED=1` and have a cron call `POST /api/jobs/tick` every minute with `Authorization: Bearer $CRON_SECRET`.
+- **Agent** (`src/lib/agent/`): each run gives Claude the lead, conversation, comments and timeline and lets it call tools — `send_dm`, `reply_comment`, `update_lead`, `schedule_followup`, `escalate_to_human`. Without a Claude key (or in demo mode) a deterministic rule-based planner proposes the same actions with conservative confidence.
+- **Autonomy controls**: every tool is *Off*, *Ask me* (queued for approval) or *Auto*. Auto actions below the confidence threshold, over the daily send cap, or beyond 4 automatic DMs per person per 24h fall back to the approval queue. A daily token budget pauses planning. Defaults: DMs and comment replies need approval; lead updates, follow-ups and escalations run automatically.
+- **Approval queue / audit log**: every proposal is stored (`AgentAction`) with its reasoning, confidence, outcome and who approved it; reviewers can edit a message before sending. Stale suggestions are superseded, and a suggestion is dropped if a human replied in the meantime.
+- **Kill switch**: the *Agent enabled* toggle stops all runs and queueing immediately.
+- **Prompt-injection posture**: prospect text is passed as delimited, sanitised data; the model can only act through the whitelisted tools and only on the lead/conversation/comments in its context; it can never mark a lead WON.
+
+Heads-up: a send in live mode still needs the prospect's last message to be under Instagram's 24-hour window; later replies fail with a clear message and stay in the queue.
+
 ## Layout
 
 ```
@@ -58,6 +77,8 @@ prisma/schema.prisma      data model       prisma/seed.ts   demo data
 src/proxy.ts              login gate       src/lib/session.ts   JWT cookie session
 src/lib/ingest.ts         lead capture + auto-assignment
 src/lib/ai/classify.ts    Claude classification / reply drafts (+ offline fallback)
+src/lib/jobs.ts           job queue          src/lib/worker.ts     job handlers + in-process worker
+src/lib/agent/            agent runtime: context, tools, planner, runner (policy gate), stale-lead scan
 src/lib/meta.ts           Graph API client, signature check
 src/app/api/meta/webhook  public Meta webhook
 src/app/(app)/*           pages          src/components/*   UI
