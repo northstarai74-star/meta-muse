@@ -48,6 +48,10 @@ In demo mode a built-in agent answers instead and replies are recorded but not s
 
 If sign-in shows an error, it now says what's wrong (missing `SESSION_SECRET`, database not migrated, …).
 
+**Locked out?** Signing in with exactly `ADMIN_EMAIL` + `ADMIN_PASSWORD` from the environment always works: it resets that account's password to `ADMIN_PASSWORD` and makes it an admin, or creates it if the email changed.
+Set both in Vercel, redeploy, sign in (the email box can be left empty). This only works when `ADMIN_PASSWORD` is at least 8 characters and isn't the example `ChangeMe123!`.
+Because these variables act as a master key, keep them secret, or remove `ADMIN_PASSWORD` once you're back in and have set a password in Settings.
+
 **Scheduled sync.** `vercel.json` runs `GET /api/meta/sync` once a day (Vercel sends `Authorization: Bearer $CRON_SECRET`), which backfills recent DM threads in case a webhook delivery was lost.
 Daily is the most the Hobby plan allows; on Pro change the schedule to e.g. `*/15 * * * *`, or call the endpoint more often from any external scheduler with the same header.
 

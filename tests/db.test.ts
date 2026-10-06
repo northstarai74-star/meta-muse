@@ -83,7 +83,6 @@ test("an echo of a message we already sent is not stored twice", { skip }, async
   const igUserId = `test_${randomUUID()}`;
   t.after(async () => {
     await db.contact.deleteMany({ where: { igUserId } });
-    await db.$disconnect();
   });
 
   const r = await ingestMessage({ igUserId, text: "hi", externalId: `m_${randomUUID()}` });
@@ -95,4 +94,43 @@ test("an echo of a message we already sent is not stored twice", { skip }, async
   const out = await db.message.findMany({ where: { conversationId: r.conversationId, direction: "OUT" } });
   assert.equal(out.length, 1);
   assert.equal(out[0].byAi, true);
+});
+
+test("ADMIN_EMAIL + ADMIN_PASSWORD recover the admin account", { skip }, async (t) => {
+  const bcrypt = (await import("bcryptjs")).default;
+  const { db } = await import("../src/lib/db");
+  const { signInWithEnvAdmin, PUBLISHED_DEFAULT_PASSWORD } = await import("../src/lib/admin-recovery");
+  const env = { email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD };
+  const adminEmail = `owner-${randomUUID()}@test.local`;
+  // Make sure the database isn't empty, so this exercises recovery rather than first-run creation
+  const other = await db.user.create({ data: { name: "Other", email: `other-${randomUUID()}@test.local`, passwordHash: "x" } });
+  t.after(async () => {
+    process.env.ADMIN_EMAIL = env.email;
+    process.env.ADMIN_PASSWORD = env.password;
+    await db.user.deleteMany({ where: { email: { in: [adminEmail, other.email] } } });
+    await db.$disconnect();
+  });
+
+  process.env.ADMIN_EMAIL = adminEmail.toUpperCase();
+  process.env.ADMIN_PASSWORD = "Recover-me-42";
+
+  // Email renamed in the environment: the account doesn't exist yet, so it is created as an admin
+  const created = await signInWithEnvAdmin(undefined, "Recover-me-42");
+  assert.equal(created?.email, adminEmail);
+  assert.equal(created?.role, "ADMIN");
+
+  // Password changed elsewhere (or forgotten): the env credentials reset it
+  await db.user.update({ where: { email: adminEmail }, data: { passwordHash: await bcrypt.hash("something-else", 10), role: "MEMBER" } });
+  const reset = await signInWithEnvAdmin(adminEmail, "Recover-me-42");
+  assert.equal(reset?.id, created?.id);
+  assert.equal(reset?.role, "ADMIN");
+  assert.ok(await bcrypt.compare("Recover-me-42", reset!.passwordHash));
+
+  // Wrong password, or a different email, is not an env sign-in
+  assert.equal(await signInWithEnvAdmin(adminEmail, "Recover-me-43"), null);
+  assert.equal(await signInWithEnvAdmin(other.email, "Recover-me-42"), null);
+
+  // The published example password never works as a recovery key
+  process.env.ADMIN_PASSWORD = PUBLISHED_DEFAULT_PASSWORD;
+  assert.equal(await signInWithEnvAdmin(adminEmail, PUBLISHED_DEFAULT_PASSWORD), null);
 });
