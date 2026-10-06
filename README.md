@@ -27,18 +27,29 @@ Login: just `ADMIN_PASSWORD` from `.env` (defaults in `.env.example`) — the em
 | Inbox | Instagram DMs: threads, reply, "Suggest" (Claude draft), create lead from thread |
 | Comments & Enquiries | Triage IG comments and lead-ad forms; reply, convert to lead |
 | Contacts | CRM: name, contact info, services, assigned team, lifetime value, edit |
-| Team | Members, workload, auto-assignment rules per service (AI agent or person) |
+| Team | Members (add, edit, reset password, remove), workload, auto-assignment rules per service (AI agent or person) |
+| Creative Studio | Generate post / reel / ad images with Higgsfield |
 | Integrations | Meta connection + webhook details, **multi-key vault** for Meta / Claude / Higgsfield |
-| Settings | Demo mode, auto-assign, Claude model |
+| Settings | Demo mode, auto-assign, AI agent auto-replies, Claude model, change your password |
+
+## AI agent
+
+Leads routed to the **AI agent** (Team → auto-assignment rules) get an automatic Instagram reply as soon as their DM arrives.
+Claude writes the reply and decides whether a person should take over (they ask for a human or a call, want a quote, are upset, or it's unsure).
+On hand-off the lead moves to the rule's owner (or the least-busy member) with the reason in its timeline; the agent also stops after 4 replies, and whenever someone replies by hand from the Inbox.
+In demo mode a built-in agent answers instead and replies are recorded but not sent. Turn it off with Settings → **AI agent auto-replies**.
 
 ## Deploy (Vercel + Supabase/Postgres)
 
-1. Set these environment variables in Vercel (Production and Preview): `DATABASE_URL`, `SESSION_SECRET`, `ENCRYPTION_KEY` (64 hex chars), `ADMIN_PASSWORD`, `ADMIN_EMAIL`, `APP_URL`.
+1. Set these environment variables in Vercel (Production and Preview): `DATABASE_URL`, `SESSION_SECRET`, `ENCRYPTION_KEY` (64 hex chars), `ADMIN_PASSWORD`, `ADMIN_EMAIL`, `APP_URL`, `CRON_SECRET`.
    On Supabase use the **Session pooler** connection string (port 5432, IPv4-compatible) as `DATABASE_URL`.
 2. Deploy. The `vercel-build` script runs `prisma migrate deploy` before `next build`, so the tables are created automatically.
 3. Open the site and sign in with `ADMIN_PASSWORD` (email optional). On an empty database the first sign-in creates the admin, so the seed script isn't needed.
 
 If sign-in shows an error, it now says what's wrong (missing `SESSION_SECRET`, database not migrated, …).
+
+**Scheduled sync.** `vercel.json` runs `GET /api/meta/sync` once a day (Vercel sends `Authorization: Bearer $CRON_SECRET`), which backfills recent DM threads in case a webhook delivery was lost.
+Daily is the most the Hobby plan allows; on Pro change the schedule to e.g. `*/15 * * * *`, or call the endpoint more often from any external scheduler with the same header.
 
 ## Demo mode vs live
 
@@ -60,7 +71,8 @@ To go live:
 Keys are encrypted at rest (AES-256-GCM, `ENCRYPTION_KEY`) and never returned by the API — only the last 4 characters.
 You can add several keys per provider. `withKey()` in `src/lib/keys.ts` uses them round-robin by priority; a `429` marks a key *rate limited* (retried after 5 min) and a `401/403` disables it, then the next key is tried automatically.
 
-Higgsfield keys are stored but nothing calls Higgsfield yet, and its **Test** button does not verify the key.
+Higgsfield keys are entered as `KEY_ID:KEY_SECRET` and power **Creative Studio** (`flux-pro/kontext/max/text-to-image`). **Test** checks the credentials without spending credits.
+A job is polled with the key that started it, so don't delete a key while its images are still generating.
 
 ## Layout
 
@@ -68,6 +80,8 @@ Higgsfield keys are stored but nothing calls Higgsfield yet, and its **Test** bu
 prisma/schema.prisma      data model       prisma/seed.ts   demo data
 src/proxy.ts              login gate       src/lib/session.ts   JWT cookie session
 src/lib/ingest.ts         lead capture + auto-assignment
+src/lib/agent.ts          AI agent auto-replies + hand-off       src/lib/outbox.ts   sending DMs
+src/lib/higgsfield.ts     Higgsfield image jobs                  src/lib/sync.ts     Meta backfill (manual + cron)
 src/lib/ai/classify.ts    Claude classification / reply drafts (+ offline fallback)
 src/lib/meta.ts           Graph API client, signature check
 src/app/api/meta/webhook  public Meta webhook
@@ -80,5 +94,6 @@ src/app/(app)/*           pages          src/components/*   UI
 
 ## Notes
 
-- Built for personal/local use. Before exposing it publicly: set strong secrets and serve over HTTPS. Login is rate-limited (10 failed attempts / 15 min per IP, in-memory — use a shared store if you run multiple instances).
+- Built for personal/local use. Before exposing it publicly: set strong secrets and serve over HTTPS. Login is rate-limited (10 failed attempts / 15 min per IP), stored in Postgres so every serverless instance shares the count.
+- Messages you send from the Instagram app itself arrive as webhook "echoes" and appear in the Inbox too.
 - Data lives in PostgreSQL (`DATABASE_URL`). CI applies the migrations to a real Postgres on every push.

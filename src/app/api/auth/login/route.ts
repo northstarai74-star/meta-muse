@@ -55,7 +55,7 @@ async function verifyPasswordOnly(password: string) {
 
 async function handle(req: Request) {
   const ipKey = `login:ip:${clientIp(req)}`;
-  const limited = rateLimit(ipKey, MAX_ATTEMPTS, WINDOW_MS);
+  const limited = await rateLimit(ipKey, MAX_ATTEMPTS, WINDOW_MS);
   if (!limited.ok) {
     return NextResponse.json(
       { error: "Too many login attempts. Try again later." },
@@ -73,7 +73,7 @@ async function handle(req: Request) {
     return NextResponse.json({ error: email ? "Incorrect email or password" : "Incorrect password" }, { status: 401 });
   }
 
-  resetRateLimit(ipKey);
+  await resetRateLimit(ipKey);
   await createSession({ uid: user.id, role: user.role }, remember ?? true);
   return NextResponse.json({ ok: true });
 }

@@ -12,7 +12,7 @@ type Meta = { appId: string; pageId: string; igBusinessId: string; verifyToken: 
 const PROVIDERS = [
   { id: "META", name: "Meta (Instagram / Facebook)", blurb: "Page access tokens used for DMs, comments and lead ads when no page token is saved above.", color: "bg-blue-500" },
   { id: "CLAUDE", name: "Claude (Anthropic)", blurb: "Lead qualification, auto-assignment and reply suggestions. Keys rotate round-robin; rate-limited keys are skipped.", color: "bg-orange-500" },
-  { id: "HIGGSFIELD", name: "Higgsfield", blurb: "Stored for AI video/image creative generation.", color: "bg-fuchsia-500" },
+  { id: "HIGGSFIELD", name: "Higgsfield", blurb: "Image generation in Creative Studio. Enter each key as KEY_ID:KEY_SECRET from your Higgsfield dashboard.", color: "bg-fuchsia-500" },
 ];
 
 async function api(url: string, method: string, body?: unknown) {
@@ -155,7 +155,7 @@ export function IntegrationsView({ keys, meta, webhookUrl, isAdmin, demoMode }: 
       <Modal open={!!adding} onClose={() => setAdding(null)} title={`Add ${PROVIDERS.find((p) => p.id === adding)?.name ?? ""} key`}>
         <form onSubmit={addKey} className="space-y-3">
           <div><Label>Label</Label><Input required autoFocus placeholder="e.g. Main account, Backup 1" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} /></div>
-          <div><Label>API key / token</Label><Input required type="password" autoComplete="off" value={form.secret} onChange={(e) => setForm({ ...form, secret: e.target.value })} /></div>
+          <div><Label>API key / token</Label><Input required type="password" autoComplete="off" placeholder={adding === "HIGGSFIELD" ? "KEY_ID:KEY_SECRET" : ""} value={form.secret} onChange={(e) => setForm({ ...form, secret: e.target.value })} /></div>
           <div>
             <Label>Priority (lower is used first)</Label>
             <Select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}>

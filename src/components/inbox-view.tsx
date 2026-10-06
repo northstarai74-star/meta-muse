@@ -7,7 +7,7 @@ import { ChevronLeft, Send, Sparkles, UserPlus } from "lucide-react";
 import { Avatar, Button, Card, Empty, ScoreBadge, ServiceBadge, StageBadge } from "./ui";
 import { cn, timeAgo } from "@/lib/utils";
 
-type Msg = { id: string; direction: string; text: string; sentAt: string };
+type Msg = { id: string; direction: string; text: string; byAi?: boolean; sentAt: string };
 type Convo = {
   id: string; unread: number; lastMessageAt: string;
   contact: { id: string; name: string; handle: string | null; email: string | null; phone: string | null };
@@ -104,7 +104,7 @@ export function InboxView({ convos, initialId }: { convos: Convo[]; initialId: s
               <div key={m.id} className={cn("flex", m.direction === "OUT" && "justify-end")}>
                 <div className={cn("max-w-[78%] rounded-2xl px-3.5 py-2 text-sm", m.direction === "OUT" ? "rounded-br-md bg-accent text-accent-fg" : "rounded-bl-md border bg-surface")}>
                   {m.text}
-                  <p className={cn("mt-1 text-[10px]", m.direction === "OUT" ? "text-accent-fg/70" : "text-muted")}>{timeAgo(m.sentAt)}</p>
+                  <p className={cn("mt-1 text-[10px]", m.direction === "OUT" ? "text-accent-fg/70" : "text-muted")}>{timeAgo(m.sentAt)}{m.byAi && " · AI agent"}</p>
                 </div>
               </div>
             ))}

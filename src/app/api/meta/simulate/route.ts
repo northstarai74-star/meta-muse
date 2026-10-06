@@ -2,6 +2,7 @@ import { z } from "zod";
 import { json, route } from "@/lib/api";
 import { getSettings } from "@/lib/settings";
 import { ingestComment, ingestLeadAd, ingestMessage } from "@/lib/ingest";
+import { runAiAgent } from "@/lib/agent";
 
 const Body = z.object({ type: z.enum(["dm", "comment", "leadad"]) });
 
@@ -27,7 +28,12 @@ export const POST = route(async (req) => {
   const name = names[Math.floor(Math.random() * names.length)];
   const handle = name.toLowerCase().replace(" ", "_") + id.slice(0, 2);
 
-  if (type === "dm") await ingestMessage({ igUserId: "sim_" + id, name, handle, text: SAMPLES.dm[n], externalId: "sim_m_" + id });
+  if (type === "dm") {
+    const r = await ingestMessage({ igUserId: "sim_" + id, name, handle, text: SAMPLES.dm[n], externalId: "sim_m_" + id });
+    // Same as the webhook: if the new lead is routed to the AI agent, it answers.
+    const agent = r ? await runAiAgent(r.conversationId) : null;
+    return json({ ok: true, type, aiReplied: !!agent?.sent });
+  }
   if (type === "comment") await ingestComment({ igUserId: "sim_" + id, handle, text: SAMPLES.comment[n], externalId: "sim_c_" + id, postRef: "reel_demo" });
   if (type === "leadad")
     await ingestLeadAd({ externalId: "sim_l_" + id, formName: "Free Consultation", name, email: `${handle}@example.com`, phone: "+1 555 010 " + Math.floor(1000 + Math.random() * 9000), message: SAMPLES.leadad[n] });

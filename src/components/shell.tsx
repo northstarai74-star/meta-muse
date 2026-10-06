@@ -18,6 +18,7 @@ import {
   LogOut,
   Menu,
   Sparkles,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "./ui";
@@ -35,6 +36,7 @@ const NAV = [
   { group: "CRM", items: [
     { href: "/contacts", label: "Contacts", icon: Contact2 },
     { href: "/team", label: "Team", icon: UsersRound },
+    { href: "/studio", label: "Creative Studio", icon: Wand2 },
   ]},
   { group: "System", items: [
     { href: "/integrations", label: "Integrations", icon: PlugZap },

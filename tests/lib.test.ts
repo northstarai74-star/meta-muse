@@ -1,17 +1,18 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { rateLimit } from "../src/lib/rate-limit";
+import { memoryRateLimit } from "../src/lib/rate-limit";
 import { safeEqual, verifySignature } from "../src/lib/meta";
-import { heuristicClassify } from "../src/lib/ai/classify";
+import { heuristicAgentDecision, heuristicClassify, templateReply } from "../src/lib/ai/classify";
+import { isHiggsfieldCredential } from "../src/lib/higgsfield";
 
-test("rateLimit blocks after the limit and recovers after the window", () => {
+test("memoryRateLimit blocks after the limit and recovers after the window", () => {
   const t = 1_000_000;
-  for (let i = 0; i < 3; i++) assert.equal(rateLimit("k", 3, 1000, t).ok, true);
-  const blocked = rateLimit("k", 3, 1000, t + 10);
+  for (let i = 0; i < 3; i++) assert.equal(memoryRateLimit("k", 3, 1000, t).ok, true);
+  const blocked = memoryRateLimit("k", 3, 1000, t + 10);
   assert.equal(blocked.ok, false);
   assert.ok(blocked.retryAfter >= 1);
-  assert.equal(rateLimit("k", 3, 1000, t + 1001).ok, true);
+  assert.equal(memoryRateLimit("k", 3, 1000, t + 1001).ok, true);
 });
 
 test("verifySignature accepts a valid Meta HMAC and rejects tampering", () => {
@@ -35,4 +36,27 @@ test("heuristicClassify routes messages to the right service", () => {
   assert.equal(heuristicClassify("Need a new website and landing page, budget $2k").service, "WEB_DEV");
   assert.equal(heuristicClassify("Looking for a dropship supplier, bulk order").service, "DROPSHIPPING");
   assert.equal(heuristicClassify("hello there").service, "UNASSIGNED");
+});
+
+test("templateReply answers with the matching service pitch", () => {
+  assert.match(templateReply("Need a website for my bakery"), /websites/);
+  assert.match(templateReply("hello"), /tell me a bit more/);
+});
+
+test("heuristicAgentDecision replies normally and hands off when a person is requested", () => {
+  const normal = heuristicAgentDecision("Do you do dropshipping product sourcing?");
+  assert.equal(normal.handoff, false);
+  assert.match(normal.reply, /sourcing/);
+
+  const human = heuristicAgentDecision("Can I talk to a real person please?");
+  assert.equal(human.handoff, true);
+  assert.ok(human.reply.length > 0);
+  assert.equal(heuristicAgentDecision("I want a refund").handoff, true);
+});
+
+test("isHiggsfieldCredential requires KEY_ID:KEY_SECRET", () => {
+  assert.equal(isHiggsfieldCredential("abc123:def456"), true);
+  assert.equal(isHiggsfieldCredential("abc123"), false);
+  assert.equal(isHiggsfieldCredential("a:b:c"), false);
+  assert.equal(isHiggsfieldCredential("abc 1:def"), false);
 });

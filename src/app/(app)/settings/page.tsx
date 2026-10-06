@@ -10,7 +10,7 @@ export default async function SettingsPage() {
   return (
     <>
       <PageHeader title="Settings" subtitle="Workspace behaviour and AI configuration" />
-      <SettingsView settings={settings} isAdmin={me?.role === "ADMIN"} />
+      <SettingsView settings={settings} isAdmin={me?.role === "ADMIN"} email={me?.email ?? ""} />
     </>
   );
 }

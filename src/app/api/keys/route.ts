@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { json, route } from "@/lib/api";
 import { addKey } from "@/lib/keys";
+import { isHiggsfieldCredential } from "@/lib/higgsfield";
 
 const Body = z.object({
   provider: z.enum(["META", "CLAUDE", "HIGGSFIELD"]),
@@ -14,6 +15,9 @@ const Body = z.object({
 export const POST = route(
   async (req) => {
     const b = Body.parse(await req.json());
+    if (b.provider === "HIGGSFIELD" && !isHiggsfieldCredential(b.secret.trim())) {
+      return json({ error: "Higgsfield keys are entered as KEY_ID:KEY_SECRET" }, 400);
+    }
     const k = await addKey(b.provider, b.label, b.secret.trim(), b.priority);
     return json({ id: k.id, provider: k.provider, label: k.label, keyHint: k.keyHint }, 201);
   },

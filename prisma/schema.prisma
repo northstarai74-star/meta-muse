@@ -29,6 +29,7 @@ model User {
   leads      Lead[]
   activities Activity[]
   rules      AssignmentRule[]
+  creatives  Creative[]
 }
 
 model Contact {
@@ -105,6 +106,7 @@ model Message {
   externalId     String?      @unique
   direction      String       // IN | OUT
   text           String
+  byAi           Boolean      @default(false) // sent automatically by the AI agent
   sentAt         DateTime     @default(now())
 
   @@index([conversationId, sentAt])
@@ -192,4 +194,31 @@ model AssignmentRule {
 model Setting {
   key   String @id
   value String
+}
+
+// Login throttling shared by every server instance (serverless functions don't share memory).
+model RateLimit {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+
+  @@index([resetAt])
+}
+
+// Higgsfield image generations. STATUS: queued | in_progress | completed | failed | nsfw
+model Creative {
+  id        String   @id @default(cuid())
+  prompt    String
+  aspect    String   @default("1:1")
+  requestId String?  @unique
+  apiKeyId  String?  // the key that submitted the job; Higgsfield requests are scoped to that account
+  status    String   @default("queued")
+  imageUrl  String?
+  error     String?
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
 }

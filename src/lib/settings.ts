@@ -3,12 +3,14 @@ import { db } from "./db";
 export type AppSettings = {
   demoMode: boolean;
   autoAssign: boolean;
+  aiAgent: boolean;
   claudeModel: string;
 };
 
 const DEFAULTS: AppSettings = {
   demoMode: true,
   autoAssign: true,
+  aiAgent: true,
   claudeModel: "claude-sonnet-5-5",
 };
 
@@ -18,6 +20,7 @@ export async function getSettings(): Promise<AppSettings> {
   return {
     demoMode: map.demoMode !== undefined ? map.demoMode === "true" : DEFAULTS.demoMode,
     autoAssign: map.autoAssign !== undefined ? map.autoAssign === "true" : DEFAULTS.autoAssign,
+    aiAgent: map.aiAgent !== undefined ? map.aiAgent === "true" : DEFAULTS.aiAgent,
     claudeModel: map.claudeModel ?? DEFAULTS.claudeModel,
   };
 }
