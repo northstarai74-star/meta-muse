@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { timingSafeEqual } from "crypto";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { createSession } from "@/lib/session";
+import { signInWithEnvAdmin } from "@/lib/admin-recovery";
 import { clientIp, rateLimit, resetRateLimit } from "@/lib/rate-limit";
 
 const Body = z.object({ email: z.string().email().optional().or(z.literal("")), password: z.string().min(1), remember: z.boolean().optional() });
@@ -20,27 +20,6 @@ async function verifyWithEmail(email: string, password: string) {
   return user && ok ? user : null;
 }
 
-/**
- * First run on an empty database: ADMIN_PASSWORD (from the environment) creates the admin on first sign-in,
- * so a fresh deploy works without running the seed script.
- */
-async function bootstrapAdmin(password: string) {
-  const expected = process.env.ADMIN_PASSWORD;
-  if (!expected || (await db.user.count()) > 0) return null;
-  const a = Buffer.from(password);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-  return db.user.create({
-    data: {
-      name: "Admin",
-      email: (process.env.ADMIN_EMAIL || "admin@vanita.local").toLowerCase(),
-      passwordHash: await bcrypt.hash(password, 10),
-      role: "ADMIN",
-      avatarColor: "#6366f1",
-    },
-  });
-}
-
 /** Email-less sign-in: the password alone identifies the account (admins are tried first). */
 async function verifyPasswordOnly(password: string) {
   const users = await db.user.findMany({ orderBy: [{ role: "asc" }, { createdAt: "asc" }] });
@@ -55,7 +34,7 @@ async function verifyPasswordOnly(password: string) {
 
 async function handle(req: Request) {
   const ipKey = `login:ip:${clientIp(req)}`;
-  const limited = rateLimit(ipKey, MAX_ATTEMPTS, WINDOW_MS);
+  const limited = await rateLimit(ipKey, MAX_ATTEMPTS, WINDOW_MS);
   if (!limited.ok) {
     return NextResponse.json(
       { error: "Too many login attempts. Try again later." },
@@ -68,12 +47,13 @@ async function handle(req: Request) {
 
   const { email, password, remember } = parsed.data;
   const user =
-    (await bootstrapAdmin(password)) ?? (email ? await verifyWithEmail(email, password) : await verifyPasswordOnly(password));
+    (await signInWithEnvAdmin(email, password)) ??
+    (email ? await verifyWithEmail(email, password) : await verifyPasswordOnly(password));
   if (!user) {
     return NextResponse.json({ error: email ? "Incorrect email or password" : "Incorrect password" }, { status: 401 });
   }
 
-  resetRateLimit(ipKey);
+  await resetRateLimit(ipKey);
   await createSession({ uid: user.id, role: user.role }, remember ?? true);
   return NextResponse.json({ ok: true });
 }

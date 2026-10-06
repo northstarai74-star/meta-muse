@@ -2,13 +2,14 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { json, route } from "@/lib/api";
 import { getSettings } from "@/lib/settings";
-import { sendInstagramMessage } from "@/lib/meta";
 import { suggestReply } from "@/lib/ai/classify";
 import { createLead } from "@/lib/ingest";
+import { sendDirectMessage } from "@/lib/outbox";
+import { handOffToHuman } from "@/lib/agent";
 
 type Ctx = { params: Promise<{ id: string; action: string }> };
 
-export const POST = route<Ctx>(async (req, { params }) => {
+export const POST = route<Ctx>(async (req, { params }, user) => {
   const { id, action } = await params;
   const convo = await db.conversation.findUnique({
     where: { id },
@@ -26,13 +27,13 @@ export const POST = route<Ctx>(async (req, { params }) => {
 
     case "send": {
       const { text } = z.object({ text: z.string().min(1).max(1000) }).parse(await req.json());
-      const settings = await getSettings();
-      if (!settings.demoMode) {
-        if (!convo.contact.igUserId) return json({ error: "This contact has no Instagram ID to message" }, 400);
-        await sendInstagramMessage(convo.contact.igUserId, text);
+      if (!convo.contact.igUserId && !(await getSettings()).demoMode) {
+        return json({ error: "This contact has no Instagram ID to message" }, 400);
       }
-      const msg = await db.message.create({ data: { conversationId: id, direction: "OUT", text } });
-      await db.conversation.update({ where: { id }, data: { lastMessageAt: msg.sentAt, unread: 0 } });
+      const msg = await sendDirectMessage(id, text);
+      // A person replying by hand takes the conversation over from the AI agent.
+      const aiLead = await db.lead.findFirst({ where: { contactId: convo.contactId, assignedAgent: "AI", stage: { notIn: ["WON", "LOST"] } } });
+      if (aiLead) await handOffToHuman(aiLead, `${user.name} replied manually`, aiLead.assignedUserId ?? user.id);
       return json(msg, 201);
     }
 

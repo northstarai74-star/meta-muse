@@ -5,6 +5,7 @@ import { saveSettings } from "@/lib/settings";
 const Body = z.object({
   demoMode: z.boolean().optional(),
   autoAssign: z.boolean().optional(),
+  aiAgent: z.boolean().optional(),
   claudeModel: z.string().min(1).optional(),
 });
 

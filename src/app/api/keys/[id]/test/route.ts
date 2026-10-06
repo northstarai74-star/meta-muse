@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
 import { json, route } from "@/lib/api";
 import { testToken } from "@/lib/meta";
+import { testHiggsfieldKey } from "@/lib/higgsfield";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -22,8 +23,8 @@ export const POST = route<Ctx>(
         const me = await testToken(secret);
         detail = `Meta token valid for “${me.name}”`;
       } else {
-        // Higgsfield: no verified public test endpoint is wired up yet, so we don't pretend to check it.
-        return json({ ok: true, untested: true, detail: "Stored securely. Live verification isn't available for Higgsfield yet." });
+        await testHiggsfieldKey(secret);
+        detail = "Higgsfield credentials accepted";
       }
       await db.apiKey.update({ where: { id }, data: { status: "ACTIVE", lastError: null } });
       return json({ ok: true, detail });

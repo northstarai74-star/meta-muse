@@ -37,13 +37,24 @@ export async function upsertContact(input: ContactInput, source: string) {
   }
 }
 
+/** The team member with the fewest open leads (null when there is no team yet). */
+async function leastLoadedUserId() {
+  const users = await db.user.findMany({ include: { _count: { select: { leads: { where: { stage: { notIn: ["WON", "LOST"] } } } } } } });
+  users.sort((a, b) => a._count.leads - b._count.leads);
+  return users[0]?.id ?? null;
+}
+
 /** Picks who should own a lead: the service's assignment rule, else the least-loaded team member. */
 export async function pickAssignee(service: string) {
   const rule = await db.assignmentRule.findUnique({ where: { service } });
   if (rule) return { agent: rule.agent, userId: rule.userId };
-  const users = await db.user.findMany({ include: { _count: { select: { leads: { where: { stage: { notIn: ["WON", "LOST"] } } } } } } });
-  users.sort((a, b) => a._count.leads - b._count.leads);
-  return { agent: "HUMAN", userId: users[0]?.id ?? null };
+  return { agent: "HUMAN", userId: await leastLoadedUserId() };
+}
+
+/** The person who takes over when the AI agent hands a lead off: the rule's owner, else the least-loaded member. */
+export async function pickHuman(service: string) {
+  const rule = await db.assignmentRule.findUnique({ where: { service } });
+  return rule?.userId ?? (await leastLoadedUserId());
 }
 
 /** Creates a lead, classifies it with Claude (or heuristics) and auto-assigns it. */

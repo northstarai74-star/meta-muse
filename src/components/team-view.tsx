@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Bot } from "lucide-react";
+import { Plus, Trash2, Bot, Pencil } from "lucide-react";
 import { Avatar, Button, Card, CardHeader, Input, Label, Modal, Select, ServiceBadge } from "./ui";
 import { SERVICES, SERVICE_META } from "@/lib/constants";
 import { money } from "@/lib/utils";
@@ -15,6 +15,9 @@ export function TeamView({ members, rules, isAdmin, meId }: { members: Member[];
   const [adding, setAdding] = React.useState(false);
   const [err, setErr] = React.useState("");
   const [f, setF] = React.useState({ name: "", email: "", password: "", title: "", role: "MEMBER" });
+  const [editing, setEditing] = React.useState<Member | null>(null);
+  const [ef, setEf] = React.useState({ name: "", email: "", title: "", role: "MEMBER", password: "" });
+  const [editErr, setEditErr] = React.useState("");
   const maxOpen = Math.max(1, ...members.map((m) => m.openLeads));
 
   async function add(e: React.FormEvent) {
@@ -25,6 +28,22 @@ export function TeamView({ members, rules, isAdmin, meId }: { members: Member[];
       setF({ name: "", email: "", password: "", title: "", role: "MEMBER" });
       router.refresh();
     } else setErr((await res.json().catch(() => ({}))).error ?? "Failed");
+  }
+  function startEdit(m: Member) {
+    setEditing(m);
+    setEditErr("");
+    setEf({ name: m.name, email: m.email, title: m.title ?? "", role: m.role, password: "" });
+  }
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editing) return;
+    const body: Record<string, string | null> = { name: ef.name, email: ef.email, title: ef.title || null, role: ef.role };
+    if (ef.password) body.password = ef.password;
+    const res = await fetch(`/api/team/${editing.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (res.ok) {
+      setEditing(null);
+      router.refresh();
+    } else setEditErr((await res.json().catch(() => ({}))).error ?? "Failed");
   }
   async function remove(m: Member) {
     if (!confirm(`Remove ${m.name}? Their leads become unassigned.`)) return;
@@ -52,6 +71,9 @@ export function TeamView({ members, rules, isAdmin, meId }: { members: Member[];
                 <p className="truncate font-semibold">{m.name} {m.id === meId && <span className="text-xs font-normal text-muted">(you)</span>}</p>
                 <p className="truncate text-xs text-muted">{m.title ?? (m.role === "ADMIN" ? "Admin" : "Team member")} · {m.email}</p>
               </div>
+              {isAdmin && (
+                <button onClick={() => startEdit(m)} aria-label={`Edit ${m.name}`} className="rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-fg"><Pencil size={15} /></button>
+              )}
               {isAdmin && m.id !== meId && (
                 <button onClick={() => remove(m)} aria-label={`Remove ${m.name}`} className="rounded-lg p-1.5 text-muted hover:bg-rose-500/10 hover:text-rose-600"><Trash2 size={15} /></button>
               )}
@@ -84,7 +106,7 @@ export function TeamView({ members, rules, isAdmin, meId }: { members: Member[];
                   <option value="">Nobody (round-robin)</option>
                   {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </Select>
-                {r?.agent === "AI" && <p className="mt-2 flex items-center gap-1 text-xs text-violet-600"><Bot size={13} /> AI handles first reply; owner: {members.find((m) => m.id === r.userId)?.name ?? "none"}</p>}
+                {r?.agent === "AI" && <p className="mt-2 flex items-center gap-1 text-xs text-violet-600"><Bot size={13} /> AI agent replies, then hands off to {members.find((m) => m.id === r.userId)?.name ?? "the least-busy member"}</p>}
               </div>
             );
           })}
@@ -102,6 +124,20 @@ export function TeamView({ members, rules, isAdmin, meId }: { members: Member[];
           </div>
           {err && <p className="text-sm text-rose-600">{err}</p>}
           <div className="flex justify-end gap-2"><Button type="button" onClick={() => setAdding(false)}>Cancel</Button><Button type="submit" variant="primary">Add member</Button></div>
+        </form>
+      </Modal>
+
+      <Modal open={!!editing} onClose={() => setEditing(null)} title={`Edit ${editing?.name ?? ""}`}>
+        <form onSubmit={saveEdit} className="space-y-3">
+          <div><Label>Name</Label><Input required value={ef.name} onChange={(e) => setEf({ ...ef, name: e.target.value })} /></div>
+          <div><Label>Email</Label><Input required type="email" value={ef.email} onChange={(e) => setEf({ ...ef, email: e.target.value })} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Job title</Label><Input value={ef.title} onChange={(e) => setEf({ ...ef, title: e.target.value })} /></div>
+            <div><Label>Role</Label><Select value={ef.role} disabled={editing?.id === meId} onChange={(e) => setEf({ ...ef, role: e.target.value })}><option value="MEMBER">Team member</option><option value="ADMIN">Admin</option></Select></div>
+          </div>
+          <div><Label>Reset password (leave blank to keep)</Label><Input type="password" minLength={8} autoComplete="new-password" value={ef.password} onChange={(e) => setEf({ ...ef, password: e.target.value })} /></div>
+          {editErr && <p className="text-sm text-rose-600">{editErr}</p>}
+          <div className="flex justify-end gap-2"><Button type="button" onClick={() => setEditing(null)}>Cancel</Button><Button type="submit" variant="primary">Save</Button></div>
         </form>
       </Modal>
     </>

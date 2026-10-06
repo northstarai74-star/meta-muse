@@ -28,7 +28,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
           lead: v.contact.leads[0]
             ? { id: v.contact.leads[0].id, service: v.contact.leads[0].service, stage: v.contact.leads[0].stage, score: v.contact.leads[0].score, owner: v.contact.leads[0].assignedUser?.name ?? null }
             : null,
-          messages: v.messages.map((m) => ({ id: m.id, direction: m.direction, text: m.text, sentAt: m.sentAt.toISOString() })),
+          messages: v.messages.map((m) => ({ id: m.id, direction: m.direction, text: m.text, byAi: m.byAi, sentAt: m.sentAt.toISOString() })),
         }))}
       />
     </>

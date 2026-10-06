@@ -29,7 +29,7 @@ export async function addKey(provider: Provider, label: string, secret: string, 
  * RATE_LIMITED, a 401/403 disables it; the next key is then tried automatically.
  * RATE_LIMITED keys are retried again after a 5 minute cool-down.
  */
-export async function withKey<T>(provider: Provider, fn: (secret: string) => Promise<T>): Promise<T> {
+export async function withKey<T>(provider: Provider, fn: (secret: string, keyId: string) => Promise<T>): Promise<T> {
   const cooldown = new Date(Date.now() - 5 * 60_000);
   await db.apiKey.updateMany({
     where: { provider, status: "RATE_LIMITED", lastUsedAt: { lt: cooldown } },
@@ -45,7 +45,7 @@ export async function withKey<T>(provider: Provider, fn: (secret: string) => Pro
   let lastErr: unknown;
   for (const k of keys) {
     try {
-      const result = await fn(decrypt(k.encryptedValue));
+      const result = await fn(decrypt(k.encryptedValue), k.id);
       await db.apiKey.update({
         where: { id: k.id },
         data: { usageCount: { increment: 1 }, lastUsedAt: new Date(), lastError: null },

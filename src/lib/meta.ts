@@ -49,7 +49,8 @@ async function withMetaToken<T>(fn: (token: string) => Promise<T>): Promise<T> {
   return withKey("META", fn);
 }
 
-export async function sendInstagramMessage(recipientIgId: string, text: string) {
+/** Sends a DM; the returned `message_id` matches the `mid` of the echo webhook Meta sends back. */
+export async function sendInstagramMessage(recipientIgId: string, text: string): Promise<{ recipient_id?: string; message_id?: string }> {
   const conn = await getConnection();
   if (!conn.pageId) throw new Error("Meta page is not connected");
   return withMetaToken((token) =>
@@ -77,6 +78,12 @@ export async function fetchLeadgen(leadgenId: string) {
     created_time?: string;
     form_id?: string;
   }>;
+}
+
+/** Lead forms only carry an ID in the leadgen payload; this looks up the human-readable name. */
+export async function fetchFormName(formId: string) {
+  const form = (await withMetaToken((token) => graph(`/${formId}?fields=name`, token))) as { name?: string };
+  return form.name;
 }
 
 export async function fetchProfile(igScopedId: string) {
