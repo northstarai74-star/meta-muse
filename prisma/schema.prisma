@@ -96,6 +96,7 @@ model Conversation {
   externalId  String?   @unique
   unread      Int       @default(0)
   lastMessageAt DateTime @default(now())
+  createdAt   DateTime  @default(now())
   messages    Message[]
 }
 
