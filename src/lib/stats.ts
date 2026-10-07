@@ -8,8 +8,8 @@ export async function dashboardStats(rangeDays: number) {
   const since = new Date(now - rangeDays * DAY);
   const prevSince = new Date(now - rangeDays * 2 * DAY);
 
-  const [leads, prevLeads, deals, prevDeals, recent, activity, users, conversations] = await Promise.all([
-    db.lead.findMany({ where: { createdAt: { gte: since } }, select: { service: true, stage: true, createdAt: true, source: true, assignedUserId: true } }),
+  const [leads, prevLeads, deals, prevDeals, recent, activity, users] = await Promise.all([
+    db.lead.findMany({ where: { createdAt: { gte: since } }, select: { id: true, service: true, stage: true, createdAt: true, source: true, assignedUserId: true } }),
     db.lead.count({ where: { createdAt: { gte: prevSince, lt: since } } }),
     db.deal.findMany({ where: { paidAt: { gte: since }, status: "PAID" } }),
     db.deal.findMany({ where: { paidAt: { gte: prevSince, lt: since }, status: "PAID" } }),
@@ -20,7 +20,6 @@ export async function dashboardStats(rangeDays: number) {
     }),
     db.activity.findMany({ orderBy: { createdAt: "desc" }, take: 8, include: { lead: { include: { contact: true } } } }),
     db.user.findMany({ select: { id: true, name: true } }),
-    db.conversation.findMany({ where: { createdAt: { gte: since } }, select: { createdAt: true, userId: true } }),
   ]);
 
   const revenue = deals.reduce((s, d) => s + d.amount, 0);
