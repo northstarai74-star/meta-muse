@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "./ui";
+import { ChatCommandBar } from "./chat-command-bar";
 
 type Counts = { inbox: number; comments: number };
 type U = { name: string; email: string; role: string; avatarColor: string };
@@ -117,6 +118,7 @@ export function Shell({ user, counts, demoMode, children }: { user: U; counts: C
 
   return (
     <div className="min-h-screen">
+      <ChatCommandBar />
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r bg-surface lg:block">{sidebar}</aside>
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
