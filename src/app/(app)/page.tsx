@@ -132,6 +132,71 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </Card>
       </div>
 
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader title="Team performance" subtitle="Leads assigned and conversion rate" />
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-y bg-surface-2/60 text-left text-xs text-muted">
+                  <th className="px-5 py-2.5 font-medium">Member</th>
+                  <th className="px-3 py-2.5 font-medium">Assigned</th>
+                  <th className="px-3 py-2.5 font-medium">Won</th>
+                  <th className="px-3 py-2.5 text-right font-medium">Conv. Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {s.teamPerformance.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-5 py-4 text-center text-xs text-muted">No team data</td>
+                  </tr>
+                ) : (
+                  s.teamPerformance.map((t) => (
+                    <tr key={t.id} className="border-b last:border-0 hover:bg-surface-2/50">
+                      <td className="px-5 py-3 font-medium">{t.name}</td>
+                      <td className="px-3 py-3 text-sm">{t.leadsAssigned}</td>
+                      <td className="px-3 py-3 text-sm font-medium text-emerald-600">{t.leadsWon}</td>
+                      <td className="px-3 py-3 text-right font-medium">{t.conversionRate}%</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+        <Card>
+          <CardHeader title="Lead source effectiveness" subtitle="Conversion by source" />
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-y bg-surface-2/60 text-left text-xs text-muted">
+                  <th className="px-5 py-2.5 font-medium">Source</th>
+                  <th className="px-3 py-2.5 font-medium">Leads</th>
+                  <th className="px-3 py-2.5 font-medium">Converted</th>
+                  <th className="px-3 py-2.5 text-right font-medium">Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {s.sourceMetrics.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-5 py-4 text-center text-xs text-muted">No source data</td>
+                  </tr>
+                ) : (
+                  s.sourceMetrics.sort((a, b) => b.leads - a.leads).slice(0, 5).map((m) => (
+                    <tr key={m.source} className="border-b last:border-0 hover:bg-surface-2/50">
+                      <td className="px-5 py-3 font-medium capitalize text-sm">{m.source.toLowerCase().replace(/_/g, ' ')}</td>
+                      <td className="px-3 py-3 text-sm">{m.leads}</td>
+                      <td className="px-3 py-3 text-sm font-medium text-emerald-600">{m.conversions}</td>
+                      <td className="px-3 py-3 text-right font-medium">{m.conversionRate}%</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
+
       <Card className="mt-4">
         <CardHeader title="Latest leads" action={<Link href="/leads" className="text-xs font-medium text-accent hover:underline">View all</Link>} />
         <div className="overflow-x-auto">

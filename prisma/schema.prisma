@@ -222,3 +222,16 @@ model Creative {
 
   @@index([createdAt])
 }
+
+// Third-party integrations: Slack, Zapier, Email, etc. TYPE: slack | webhook | email | zapier
+model Integration {
+  id        String   @id @default(cuid())
+  type      String   // slack | webhook | email | zapier
+  name      String
+  config    String   // JSON config stored as string
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type, active])
+}
