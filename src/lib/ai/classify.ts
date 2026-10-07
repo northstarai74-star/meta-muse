@@ -4,6 +4,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { withKey } from "../keys";
 import { getSettings } from "../settings";
 import { db } from "../db";
+import { classifyLeadWithOpenRouter, generateAIReplyWithOpenRouter, OpenRouterConfig } from "../integrations/openrouter";
 
 export const ClassificationSchema = z.object({
   service: z.enum(["AI_VOICE", "WEB_DEV", "DROPSHIPPING", "UNASSIGNED"]),
@@ -50,8 +51,34 @@ Use HUMAN when the lead is high value, complex or emotional; AI for simple FAQ-s
 
 export async function classifyText(text: string): Promise<Classification> {
   const settings = await getSettings();
-  const hasKey = (await db.apiKey.count({ where: { provider: "CLAUDE", status: "ACTIVE" } })) > 0;
-  if (settings.demoMode || !hasKey) return heuristicClassify(text);
+  const hasClaudeKey = (await db.apiKey.count({ where: { provider: "CLAUDE", status: "ACTIVE" } })) > 0;
+  const hasOpenRouterKey = (await db.apiKey.count({ where: { provider: "OPENROUTER", status: "ACTIVE" } })) > 0;
+
+  if (settings.demoMode) return heuristicClassify(text);
+
+  // Try OpenRouter first if enabled
+  if (settings.useOpenRouter && hasOpenRouterKey) {
+    try {
+      const orKey = await db.apiKey.findFirst({
+        where: { provider: "OPENROUTER", status: "ACTIVE" },
+      });
+      if (orKey) {
+        const decrypted = Buffer.from(orKey.encryptedValue, "base64").toString("utf-8");
+        const result = await classifyLeadWithOpenRouter(text.slice(0, 4000), {
+          apiKey: decrypted,
+          model: settings.openRouterModel,
+        });
+        if (result.service && result.score !== undefined) {
+          return ClassificationSchema.parse(result);
+        }
+      }
+    } catch (err) {
+      console.warn("[classifyText] OpenRouter failed, trying Claude", err);
+    }
+  }
+
+  // Fall back to Claude
+  if (!hasClaudeKey) return heuristicClassify(text);
 
   try {
     const raw = await withKey("CLAUDE", async (apiKey) => {

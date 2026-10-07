@@ -5,6 +5,8 @@ export type AppSettings = {
   autoAssign: boolean;
   aiAgent: boolean;
   claudeModel: string;
+  useOpenRouter: boolean;
+  openRouterModel: string;
 };
 
 const DEFAULTS: AppSettings = {
@@ -12,6 +14,8 @@ const DEFAULTS: AppSettings = {
   autoAssign: true,
   aiAgent: true,
   claudeModel: "claude-sonnet-5-5",
+  useOpenRouter: false,
+  openRouterModel: "anthropic/claude-3-5-sonnet",
 };
 
 export async function getSettings(): Promise<AppSettings> {
@@ -22,6 +26,8 @@ export async function getSettings(): Promise<AppSettings> {
     autoAssign: map.autoAssign !== undefined ? map.autoAssign === "true" : DEFAULTS.autoAssign,
     aiAgent: map.aiAgent !== undefined ? map.aiAgent === "true" : DEFAULTS.aiAgent,
     claudeModel: map.claudeModel ?? DEFAULTS.claudeModel,
+    useOpenRouter: map.useOpenRouter !== undefined ? map.useOpenRouter === "true" : DEFAULTS.useOpenRouter,
+    openRouterModel: map.openRouterModel ?? DEFAULTS.openRouterModel,
   };
 }
 

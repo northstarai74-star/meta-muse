@@ -1,15 +1,14 @@
 import { db } from "./db";
 import { getSettings } from "./settings";
 import { agentDecision, type AgentDecision } from "./ai/classify";
+import { jarvisDecideAction, getJarvisConfig } from "./jarvis";
 import { pickHuman } from "./ingest";
 import { sendDirectMessage } from "./outbox";
 
-/** After this many automatic replies on one lead, the agent stops and hands over to a person. */
 export const MAX_AI_REPLIES = 4;
 
 type Lead = { id: string; service: string; assignedUserId: string | null };
 
-/** Moves a lead from the AI agent to a person (`ownerId`, else its current owner, else the routing rules) and logs why. */
 export async function handOffToHuman(lead: Lead, reason: string, ownerId?: string) {
   const userId = ownerId ?? lead.assignedUserId ?? (await pickHuman(lead.service));
   await db.lead.update({ where: { id: lead.id }, data: { assignedAgent: "HUMAN", assignedUserId: userId } });
@@ -23,10 +22,6 @@ export async function handOffToHuman(lead: Lead, reason: string, ownerId?: strin
   });
 }
 
-/**
- * The AI agent: when the open lead behind a conversation is assigned to "AI", it answers the latest
- * inbound DM and decides whether a person should take over. Returns what it did (null = not its turn).
- */
 export async function runAiAgent(conversationId: string): Promise<(AgentDecision & { sent: boolean }) | null> {
   const settings = await getSettings();
   if (!settings.aiAgent) return null;
@@ -46,10 +41,32 @@ export async function runAiAgent(conversationId: string): Promise<(AgentDecision
   if (!lead || lead.assignedAgent !== "AI") return null;
 
   const aiReplies = await db.message.count({ where: { conversationId, byAi: true, sentAt: { gte: lead.createdAt } } });
-  let decision: AgentDecision =
-    aiReplies >= MAX_AI_REPLIES
-      ? { reply: "", handoff: true, reason: `reached the ${MAX_AI_REPLIES}-reply limit` }
-      : await agentDecision(history);
+
+  let decision: AgentDecision | null = null;
+
+  const jarvisConfig = await getJarvisConfig();
+  if (aiReplies >= MAX_AI_REPLIES) {
+    decision = { reply: "", handoff: true, reason: `reached the ${MAX_AI_REPLIES}-reply limit` };
+  } else if (jarvisConfig.enabled) {
+    try {
+      const jarvisResult = await jarvisDecideAction(
+        history.map((m) => ({ role: m.direction as "IN" | "OUT", text: m.text }))
+      );
+      if (jarvisResult) {
+        decision = {
+          reply: jarvisResult.reply,
+          handoff: jarvisResult.handoff,
+          reason: jarvisResult.reasoning,
+        };
+      }
+    } catch (err) {
+      console.error("[Jarvis] Decision failed, falling back to Claude:", err);
+    }
+  }
+
+  if (!decision) {
+    decision = await agentDecision(history);
+  }
 
   let sent = false;
   if (decision.reply) {
@@ -63,7 +80,7 @@ export async function runAiAgent(conversationId: string): Promise<(AgentDecision
   }
 
   if (decision.handoff) await handOffToHuman(lead, decision.reason);
-  else await db.activity.create({ data: { leadId: lead.id, type: "AI", text: `AI agent replied: “${decision.reply.slice(0, 120)}”` } });
+  else await db.activity.create({ data: { leadId: lead.id, type: "AI", text: `AI agent replied: "${decision.reply.slice(0, 120)}"` } });
 
   if (lead.stage === "NEW" && sent) {
     await db.lead.update({ where: { id: lead.id }, data: { stage: "CONTACTED" } });
