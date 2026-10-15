@@ -5,6 +5,29 @@ It captures Instagram DMs, comments and Meta Lead Ads, classifies each lead with
 
 Stack: Next.js 16 (App Router) · TypeScript · Tailwind v4 · Prisma 6 + PostgreSQL · Recharts.
 
+## Run locally on Windows
+
+1. Install **Node 22 LTS** (`winget install OpenJS.NodeJS.LTS`), **Git** (`winget install Git.Git`) and **PostgreSQL 16** (`winget install PostgreSQL.PostgreSQL.16`). Keep port 5432 and remember the `postgres` password.
+2. In `psql` (or pgAdmin) create the database user and database:
+   ```sql
+   CREATE USER muse WITH PASSWORD 'muse';
+   CREATE DATABASE muse OWNER muse;
+   ```
+   (Or, with Docker Desktop installed instead: `docker compose up -d` uses `docker-compose.yml`.)
+3. In PowerShell, from the project folder:
+   ```powershell
+   copy .env.example .env
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"   # paste the output as ENCRYPTION_KEY
+   ```
+   Edit `.env`: set `DATABASE_URL="postgresql://muse:muse@localhost:5432/muse"`, a long `SESSION_SECRET` and `CRON_SECRET`, an `ADMIN_PASSWORD` of 8+ characters, and the `ENCRYPTION_KEY` you generated.
+4. Check the file, then install and set up the database:
+   ```powershell
+   npm run env:check
+   npm install
+   npx prisma migrate deploy
+   ```
+5. Start it with `npm run dev` and open http://localhost:3000. `npm run dev` runs the env check first and stops with a clear message if something is missing. Sign in with `ADMIN_PASSWORD` (the email box can stay empty).
+
 ## Run it
 
 ```bash
