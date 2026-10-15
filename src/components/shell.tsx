@@ -19,6 +19,10 @@ import {
   Menu,
   Sparkles,
   Wand2,
+  Wallet,
+  Globe,
+  Mail,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "./ui";
@@ -37,6 +41,10 @@ const NAV = [
     { href: "/contacts", label: "Contacts", icon: Contact2 },
     { href: "/team", label: "Team", icon: UsersRound },
     { href: "/studio", label: "Creative Studio", icon: Wand2 },
+    { href: "/finance", label: "Finance", icon: Wallet },
+    { href: "/email", label: "Email", icon: Mail },
+    { href: "/website", label: "Website", icon: Globe },
+    { href: "/assistant", label: "AI Assistant", icon: Bot },
   ]},
   { group: "System", items: [
     { href: "/integrations", label: "Integrations", icon: PlugZap },

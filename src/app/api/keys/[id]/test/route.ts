@@ -4,6 +4,8 @@ import { decrypt } from "@/lib/crypto";
 import { json, route } from "@/lib/api";
 import { testToken } from "@/lib/meta";
 import { testHiggsfieldKey } from "@/lib/higgsfield";
+import { testProviderKey } from "@/lib/providers";
+import type { Provider } from "@/lib/constants";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -22,9 +24,11 @@ export const POST = route<Ctx>(
       } else if (key.provider === "META") {
         const me = await testToken(secret);
         detail = `Meta token valid for “${me.name}”`;
-      } else {
+      } else if (key.provider === "HIGGSFIELD") {
         await testHiggsfieldKey(secret);
         detail = "Higgsfield credentials accepted";
+      } else {
+        detail = await testProviderKey(key.provider as Provider, secret);
       }
       await db.apiKey.update({ where: { id }, data: { status: "ACTIVE", lastError: null } });
       return json({ ok: true, detail });

@@ -78,6 +78,17 @@ You can add several keys per provider. `withKey()` in `src/lib/keys.ts` uses the
 Higgsfield keys are entered as `KEY_ID:KEY_SECRET` and power **Creative Studio** (`flux-pro/kontext/max/text-to-image`). **Test** checks the credentials without spending credits.
 A job is polled with the key that started it, so don't delete a key while its images are still generating.
 
+## Connections, finance, email, website and assistant
+
+- **Integrations** now also store keys for **WhatsApp Business** (`PHONE_NUMBER_ID:ACCESS_TOKEN`, webhook `/api/whatsapp/webhook`, verify token in `WHATSAPP_VERIFY_TOKEN`), **LinkedIn** (OAuth access token), **YouTube** (Data API key) and **Brevo** (v3 API key). Each key has a **Test** button; keys rotate and are encrypted like the others.
+- **WhatsApp agent**: inbound WhatsApp texts are stored as conversations (Inbox) and answered by the AI agent unless it hands off to a person.
+- **Email** (Brevo): send email to up to 50 recipients, set the verified sender, and push CRM contacts with an email into Brevo.
+- **Finance**: income and expenses with monthly and all-time totals.
+- **Website**: edit the public site content; `GET /api/public/site` returns it only while **Published** is on.
+- **AI Assistant**: chat with Claude about leads, conversations and finances (uses the Claude key vault).
+
+LinkedIn and YouTube are connected and tested here; posting or reading their content is not built yet.
+
 ## Layout
 
 ```

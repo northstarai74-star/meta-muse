@@ -196,6 +196,19 @@ model Setting {
   value String
 }
 
+// Income and expenses tracked in the Finance page. type: INCOME | EXPENSE
+model Transaction {
+  id        String   @id @default(cuid())
+  type      String
+  amount    Float
+  category  String
+  note      String?
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([date])
+}
+
 // Login throttling shared by every server instance (serverless functions don't share memory).
 model RateLimit {
   key     String   @id

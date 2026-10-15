@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { getSettings } from "./settings";
 import { sendInstagramMessage } from "./meta";
+import { sendWhatsAppText } from "./providers";
 
 const isDuplicate = (err: unknown) => (err as { code?: string })?.code === "P2002";
 
@@ -29,8 +30,13 @@ export async function sendDirectMessage(conversationId: string, text: string, op
   const settings = await getSettings();
   let externalId: string | undefined;
   if (!settings.demoMode) {
-    if (!convo.contact.igUserId) throw new Error("This contact has no Instagram ID to message");
-    externalId = (await sendInstagramMessage(convo.contact.igUserId, text)).message_id;
+    if (convo.platform === "WHATSAPP") {
+      if (!convo.contact.phone) throw new Error("This contact has no phone number to message");
+      externalId = (await sendWhatsAppText(convo.contact.phone, text)) ?? undefined;
+    } else {
+      if (!convo.contact.igUserId) throw new Error("This contact has no Instagram ID to message");
+      externalId = (await sendInstagramMessage(convo.contact.igUserId, text)).message_id;
+    }
   }
   return recordOutgoing(conversationId, text, { externalId, byAi: opts.byAi });
 }

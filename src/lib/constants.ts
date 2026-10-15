@@ -54,8 +54,9 @@ export const SOURCE_META: Record<string, string> = {
   META_DM: "Instagram DM",
   META_COMMENT: "Instagram comment",
   META_LEAD_AD: "Meta lead ad",
+  WHATSAPP: "WhatsApp",
   MANUAL: "Manual",
 };
 
-export const PROVIDERS = ["META", "CLAUDE", "HIGGSFIELD"] as const;
+export const PROVIDERS = ["META", "CLAUDE", "HIGGSFIELD", "WHATSAPP", "LINKEDIN", "YOUTUBE", "BREVO"] as const;
 export type Provider = (typeof PROVIDERS)[number];

@@ -13,6 +13,10 @@ const PROVIDERS = [
   { id: "META", name: "Meta (Instagram / Facebook)", blurb: "Page access tokens used for DMs, comments and lead ads when no page token is saved above.", color: "bg-blue-500" },
   { id: "CLAUDE", name: "Claude (Anthropic)", blurb: "Lead qualification, auto-assignment and reply suggestions. Keys rotate round-robin; rate-limited keys are skipped.", color: "bg-orange-500" },
   { id: "HIGGSFIELD", name: "Higgsfield", blurb: "Image generation in Creative Studio. Enter each key as KEY_ID:KEY_SECRET from your Higgsfield dashboard.", color: "bg-fuchsia-500" },
+  { id: "WHATSAPP", name: "WhatsApp Business", blurb: "WhatsApp Cloud API. Enter PHONE_NUMBER_ID:ACCESS_TOKEN. Point the Meta webhook at /api/whatsapp/webhook and subscribe to “messages”; the AI agent answers chats automatically.", color: "bg-emerald-500" },
+  { id: "LINKEDIN", name: "LinkedIn", blurb: "OAuth access token with the openid and profile scopes. Used to confirm the account is connected.", color: "bg-sky-600" },
+  { id: "YOUTUBE", name: "YouTube", blurb: "Google API key with YouTube Data API v3 enabled. Used to confirm the key works.", color: "bg-red-600" },
+  { id: "BREVO", name: "Brevo (email)", blurb: "v3 API key for sending email and storing contacts. Set the sender on the Email page.", color: "bg-yellow-500" },
 ];
 
 async function api(url: string, method: string, body?: unknown) {
