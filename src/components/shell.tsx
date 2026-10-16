@@ -20,6 +20,7 @@ import {
   Sparkles,
   Wand2,
   ChartColumn,
+  Headset,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "./ui";
@@ -38,6 +39,7 @@ const NAV = [
   { group: "CRM", items: [
     { href: "/contacts", label: "Contacts", icon: Contact2 },
     { href: "/team", label: "Team", icon: UsersRound },
+    { href: "/customer-service", label: "Customer Service", icon: Headset },
     { href: "/studio", label: "Creative Studio", icon: Wand2 },
   ]},
   { group: "System", items: [
